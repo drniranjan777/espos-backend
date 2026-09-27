@@ -1,0 +1,31 @@
+export const AUDIT_ACTION = Object.freeze({
+  CREATE: 'CREATE',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  ACTIVATE: 'ACTIVATE',
+  DEACTIVATE: 'DEACTIVATE',
+  LOGIN: 'LOGIN',
+  LOGOUT: 'LOGOUT',
+  PASSWORD_CHANGE: 'PASSWORD_CHANGE',
+  STOCK_IN: 'STOCK_IN',
+  STOCK_OUT: 'STOCK_OUT',
+  STOCK_ADJUST: 'STOCK_ADJUST',
+  FINALIZE: 'FINALIZE',
+  CANCEL: 'CANCEL',
+});
+
+export const AUDIT_MODULE = Object.freeze({
+  AUTH: 'auth',
+  USERS: 'users',
+  ROLES: 'roles',
+  PRODUCTS: 'products',
+  CATEGORIES: 'categories',
+  BRANDS: 'brands',
+  UNITS: 'units',
+  GST_RATES: 'gst_rates',
+  ADJUSTMENT_CODES: 'adjustment_codes',
+  INVENTORY: 'inventory',
+  CUSTOMERS: 'customers',
+  INVOICES: 'invoices',
+  SETTINGS: 'settings',
+});
