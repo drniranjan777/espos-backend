@@ -9,7 +9,7 @@ const COOKIE_PATH = '/api/v1/auth';
 function setRefreshCookie(res, token, expiresAt) {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
-    secure: env.isProduction,
+    secure: env.cookieSecure,
     sameSite: 'strict',
     path: COOKIE_PATH,
     expires: expiresAt,
@@ -21,7 +21,7 @@ function clearRefreshCookie(res) {
     path: COOKIE_PATH,
     httpOnly: true,
     sameSite: 'strict',
-    secure: env.isProduction,
+    secure: env.cookieSecure,
   });
 }
 

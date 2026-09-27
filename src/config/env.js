@@ -25,6 +25,9 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  // Send the refresh cookie only over HTTPS. Defaults to true in production; set false only
+  // for an internal deployment served over plain HTTP.
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 
   // Business timezone: defines what "today" means for dashboards, stock dates and invoices.
@@ -66,6 +69,7 @@ export const env = Object.freeze({
   ...raw,
   isProduction: raw.NODE_ENV === 'production',
   isTest: raw.NODE_ENV === 'test',
+  cookieSecure: raw.COOKIE_SECURE ? raw.COOKIE_SECURE === 'true' : raw.NODE_ENV === 'production',
   corsOrigins: raw.CORS_ORIGINS.split(',')
     .map((o) => o.trim())
     .filter(Boolean),
