@@ -8,7 +8,9 @@ const hsnCode = z
   .trim()
   .nullish()
   .transform((v) => (v === undefined ? undefined : v || null))
-  .refine((v) => v == null || /^[0-9]{4,8}$/.test(v), { message: 'HSN code must be 4 to 8 digits' });
+  .refine((v) => v == null || /^[0-9]{4,8}$/.test(v), {
+    message: 'HSN code must be 4 to 8 digits',
+  });
 
 const productFields = {
   name: requiredText(200, 'Product name'),
@@ -31,7 +33,9 @@ const productFields = {
 };
 
 function pricesAreConsistent(data) {
-  return data.mrp == null || data.sellingPrice == null || data.mrp === 0 || data.sellingPrice <= data.mrp;
+  return (
+    data.mrp == null || data.sellingPrice == null || data.mrp === 0 || data.sellingPrice <= data.mrp
+  );
 }
 
 const priceRule = { path: ['sellingPrice'], message: 'Selling price cannot be higher than MRP' };

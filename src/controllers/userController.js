@@ -11,11 +11,19 @@ export async function getUser(req, res) {
 }
 
 export async function createUser(req, res) {
-  return sendCreated(res, await userService.createUser(req.validated.body, req.context), 'User created');
+  return sendCreated(
+    res,
+    await userService.createUser(req.validated.body, req.context),
+    'User created',
+  );
 }
 
 export async function updateUser(req, res) {
-  const user = await userService.updateUser(req.validated.params.id, req.validated.body, req.context);
+  const user = await userService.updateUser(
+    req.validated.params.id,
+    req.validated.body,
+    req.context,
+  );
   return sendSuccess(res, user, { message: 'User updated' });
 }
 
@@ -32,11 +40,19 @@ export async function getRole(req, res) {
 }
 
 export async function createRole(req, res) {
-  return sendCreated(res, await roleService.createRole(req.validated.body, req.context), 'Role created');
+  return sendCreated(
+    res,
+    await roleService.createRole(req.validated.body, req.context),
+    'Role created',
+  );
 }
 
 export async function updateRole(req, res) {
-  const role = await roleService.updateRole(req.validated.params.id, req.validated.body, req.context);
+  const role = await roleService.updateRole(
+    req.validated.params.id,
+    req.validated.body,
+    req.context,
+  );
   return sendSuccess(res, role, { message: 'Role updated' });
 }
 

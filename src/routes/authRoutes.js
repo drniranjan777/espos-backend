@@ -15,7 +15,10 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     success: false,
-    error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many login attempts. Try again in 15 minutes.' },
+    error: {
+      code: 'TOO_MANY_ATTEMPTS',
+      message: 'Too many login attempts. Try again in 15 minutes.',
+    },
   },
 });
 

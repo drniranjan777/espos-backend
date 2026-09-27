@@ -82,7 +82,9 @@ export async function refresh(rawToken, context) {
 
 export async function logout(rawToken, context) {
   if (!rawToken) return;
-  const stored = await db('refresh_tokens').where({ token_hash: hashToken(rawToken) }).first();
+  const stored = await db('refresh_tokens')
+    .where({ token_hash: hashToken(rawToken) })
+    .first();
   if (!stored) return;
   await refreshTokenRepository.revoke(stored.id);
   await auditService.log(

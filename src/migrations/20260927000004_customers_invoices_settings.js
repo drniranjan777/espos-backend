@@ -53,7 +53,9 @@ export async function up(knex) {
     t.integer('updated_by').references('users.id').onDelete('SET NULL');
     timestamps(knex, t);
   });
-  await knex.raw('ALTER TABLE company_settings ADD CONSTRAINT chk_company_settings_singleton CHECK (id = 1)');
+  await knex.raw(
+    'ALTER TABLE company_settings ADD CONSTRAINT chk_company_settings_singleton CHECK (id = 1)',
+  );
   await knex.raw(updatedAtTrigger('company_settings'));
 
   // Gap-free invoice counters per prefix + Indian financial year (e.g. 2026-27).
@@ -157,7 +159,9 @@ export async function up(knex) {
 }
 
 export async function down(knex) {
-  await knex.raw('ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS fk_inv_txn_customer');
+  await knex.raw(
+    'ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS fk_inv_txn_customer',
+  );
   await knex.schema.dropTableIfExists('invoice_items');
   await knex.schema.dropTableIfExists('invoices');
   await knex.schema.dropTableIfExists('invoice_sequences');

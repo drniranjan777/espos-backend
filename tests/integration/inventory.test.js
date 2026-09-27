@@ -37,7 +37,12 @@ describe('opening stock', () => {
   it('books opening stock as an OPENING ledger entry', async () => {
     const ledger = (await admin.get(`/inventory/ledger?productId=${productId}`)).body.data;
     expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toMatchObject({ type: 'OPENING', quantity: 20, previousBalance: 0, newBalance: 20 });
+    expect(ledger[0]).toMatchObject({
+      type: 'OPENING',
+      quantity: 20,
+      previousBalance: 0,
+      newBalance: 20,
+    });
   });
 
   it('creates a product with zero stock without a ledger entry', async () => {
@@ -92,7 +97,11 @@ describe('stock IN', () => {
   });
 
   it('rejects future dates', async () => {
-    const res = await warehouse.post('/inventory/stock-in', { productId, quantity: 1, date: '2999-01-01' });
+    const res = await warehouse.post('/inventory/stock-in', {
+      productId,
+      quantity: 1,
+      date: '2999-01-01',
+    });
     expect(res.status).toBe(422);
   });
 
@@ -111,7 +120,12 @@ describe('stock OUT', () => {
       reason: 'Counter sale',
     });
     expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({ type: 'OUT', quantity: -5, previousBalance: 20, newBalance: 15 });
+    expect(res.body.data).toMatchObject({
+      type: 'OUT',
+      quantity: -5,
+      previousBalance: 20,
+      newBalance: 15,
+    });
     expect(res.body.data.customerName).toBeTruthy();
     expect(await stockOf(productId)).toBe(15);
   });
@@ -134,7 +148,9 @@ describe('stock OUT', () => {
   it('never oversells under concurrent requests', async () => {
     // 10 parallel requests for 3 units each against 20 in stock: at most 6 can succeed.
     const results = await Promise.all(
-      Array.from({ length: 10 }, () => warehouse.post('/inventory/stock-out', { productId, quantity: 3 })),
+      Array.from({ length: 10 }, () =>
+        warehouse.post('/inventory/stock-out', { productId, quantity: 3 }),
+      ),
     );
     const succeeded = results.filter((r) => r.status === 201).length;
     const rejected = results.filter((r) => r.status === 409).length;
@@ -142,7 +158,8 @@ describe('stock OUT', () => {
     expect(rejected).toBe(4);
     expect(await stockOf(productId)).toBe(2);
 
-    const ledger = (await admin.get(`/inventory/ledger?productId=${productId}&limit=100`)).body.data;
+    const ledger = (await admin.get(`/inventory/ledger?productId=${productId}&limit=100`)).body
+      .data;
     // Every ledger row chains correctly from the previous one.
     const chronological = [...ledger].reverse();
     for (let i = 1; i < chronological.length; i += 1) {
@@ -152,7 +169,11 @@ describe('stock OUT', () => {
 
   it('rejects an inactive customer', async () => {
     await db('customers').where({ id: 3 }).update({ is_active: false });
-    const res = await warehouse.post('/inventory/stock-out', { productId, quantity: 1, customerId: 3 });
+    const res = await warehouse.post('/inventory/stock-out', {
+      productId,
+      quantity: 1,
+      customerId: 3,
+    });
     expect(res.status).toBe(400);
     await db('customers').where({ id: 3 }).update({ is_active: true });
   });
@@ -166,7 +187,9 @@ describe('stock OUT', () => {
 
 describe('stock adjustment', () => {
   async function codeId(code) {
-    return (await admin.get(`/adjustment-codes?search=${code}`)).body.data.find((c) => c.code === code).id;
+    return (await admin.get(`/adjustment-codes?search=${code}`)).body.data.find(
+      (c) => c.code === code,
+    ).id;
   }
 
   it('sets stock to a physical count and books the difference', async () => {
@@ -243,10 +266,12 @@ describe('stock adjustment', () => {
 describe('ledger integrity', () => {
   it('cannot be modified or deleted at the database level', async () => {
     const row = await db('inventory_transactions').where({ product_id: productId }).first('id');
-    await expect(db('inventory_transactions').where({ id: row.id }).update({ quantity: 999 })).rejects.toThrow(
+    await expect(
+      db('inventory_transactions').where({ id: row.id }).update({ quantity: 999 }),
+    ).rejects.toThrow(/append-only/);
+    await expect(db('inventory_transactions').where({ id: row.id }).del()).rejects.toThrow(
       /append-only/,
     );
-    await expect(db('inventory_transactions').where({ id: row.id }).del()).rejects.toThrow(/append-only/);
   });
 
   it('writes an audit entry for every movement', async () => {
@@ -275,7 +300,9 @@ describe('permissions', () => {
       reason: 'x',
     });
     expect(adjust.status).toBe(403);
-    expect((await warehouse.post('/products', { name: 'x', sku: 'X1', unitId: 1 })).status).toBe(403);
+    expect((await warehouse.post('/products', { name: 'x', sku: 'X1', unitId: 1 })).status).toBe(
+      403,
+    );
   });
 
   it('salesmen cannot record stock IN', async () => {
@@ -299,6 +326,10 @@ describe('permissions', () => {
     });
     const res = await salesman.post('/inventory/stock-in', { productId, quantity: 1 });
     expect(res.status).toBe(201);
-    await admin.put(`/roles/${role.id}`, { name: role.name, description: role.description, permissions: role.permissions });
+    await admin.put(`/roles/${role.id}`, {
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions,
+    });
   });
 });

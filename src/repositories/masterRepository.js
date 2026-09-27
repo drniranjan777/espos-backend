@@ -64,7 +64,9 @@ export function createMasterRepository(config) {
     },
 
     async update(id, data, userId, trx = db) {
-      await trx(table).where({ id }).update({ ...toRow(data), updated_by: userId });
+      await trx(table)
+        .where({ id })
+        .update({ ...toRow(data), updated_by: userId });
     },
 
     async remove(id, trx = db) {

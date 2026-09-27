@@ -12,15 +12,21 @@ import { createMasterService } from './masterService.js';
 /** Categories are two levels deep: a top-level category and its sub-categories. */
 async function validateCategoryParent(data, before, trx) {
   if (!data.parentId) return;
-  if (before && data.parentId === before.id) throw ApiError.badRequest('A category cannot be its own parent');
+  if (before && data.parentId === before.id) {
+    throw ApiError.badRequest('A category cannot be its own parent');
+  }
 
   const parent = await categoryRepository.findById(data.parentId, trx);
   if (!parent) throw ApiError.badRequest('Parent category does not exist');
-  if (parent.parentId) throw ApiError.badRequest('Sub-categories cannot have their own sub-categories');
+  if (parent.parentId) {
+    throw ApiError.badRequest('Sub-categories cannot have their own sub-categories');
+  }
 
   if (before) {
     const hasChildren = await trx('categories').where({ parent_id: before.id }).first('id');
-    if (hasChildren) throw ApiError.badRequest('A category with sub-categories cannot become a sub-category');
+    if (hasChildren) {
+      throw ApiError.badRequest('A category with sub-categories cannot become a sub-category');
+    }
   }
 }
 

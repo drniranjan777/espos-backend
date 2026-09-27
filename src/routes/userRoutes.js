@@ -26,11 +26,21 @@ export const roleRouter = Router();
 roleRouter.get('/', requireAnyPermission(P.ROLES_MANAGE, P.USERS_MANAGE), c.listRoles);
 roleRouter.get('/permissions', requirePermission(P.ROLES_MANAGE), c.listPermissions);
 roleRouter.get('/:id', requirePermission(P.ROLES_MANAGE), validate({ params: idParam }), c.getRole);
-roleRouter.post('/', requirePermission(P.ROLES_MANAGE), validate({ body: createRoleSchema }), c.createRole);
+roleRouter.post(
+  '/',
+  requirePermission(P.ROLES_MANAGE),
+  validate({ body: createRoleSchema }),
+  c.createRole,
+);
 roleRouter.put(
   '/:id',
   requirePermission(P.ROLES_MANAGE),
   validate({ params: idParam, body: roleSchema }),
   c.updateRole,
 );
-roleRouter.delete('/:id', requirePermission(P.ROLES_MANAGE), validate({ params: idParam }), c.deleteRole);
+roleRouter.delete(
+  '/:id',
+  requirePermission(P.ROLES_MANAGE),
+  validate({ params: idParam }),
+  c.deleteRole,
+);

@@ -28,7 +28,9 @@ export async function findById(id, trx = db) {
 }
 
 export async function listPermissions() {
-  return db('permissions').select('id', 'code', 'module', 'description').orderBy(['module', 'code']);
+  return db('permissions')
+    .select('id', 'code', 'module', 'description')
+    .orderBy(['module', 'code']);
 }
 
 export async function findPermissionIds(codes, trx = db) {

@@ -9,16 +9,14 @@ const emptyToNull = (v) => (v === undefined ? undefined : v || null);
 export const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 /** Optional trimmed string; empty strings become null so they clear the column. */
-export const optionalText = (max) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .nullish()
-    .transform(emptyToNull);
+export const optionalText = (max) => z.string().trim().max(max).nullish().transform(emptyToNull);
 
 export const requiredText = (max, label = 'This field') =>
-  z.string({ error: `${label} is required` }).trim().min(1, `${label} is required`).max(max);
+  z
+    .string({ error: `${label} is required` })
+    .trim()
+    .min(1, `${label} is required`)
+    .max(max);
 
 export const money = z.coerce
   .number({ error: 'Must be a number' })
@@ -67,7 +65,9 @@ export const mobile = z
   .trim()
   .nullish()
   .transform((v) => emptyToNull(v?.replace(/[\s-]/g, '')))
-  .refine((v) => v == null || /^(\+91)?[6-9][0-9]{9}$/.test(v), { message: 'Enter a valid 10-digit mobile number' });
+  .refine((v) => v == null || /^(\+91)?[6-9][0-9]{9}$/.test(v), {
+    message: 'Enter a valid 10-digit mobile number',
+  });
 
 export const email = z
   .string()

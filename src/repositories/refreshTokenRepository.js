@@ -9,7 +9,10 @@ export async function findByHash(tokenHash, trx = db) {
 }
 
 export async function revoke(id, trx = db) {
-  await trx('refresh_tokens').where({ id }).whereNull('revoked_at').update({ revoked_at: db.fn.now() });
+  await trx('refresh_tokens')
+    .where({ id })
+    .whereNull('revoked_at')
+    .update({ revoked_at: db.fn.now() });
 }
 
 export async function revokeAllForUser(userId, trx = db) {

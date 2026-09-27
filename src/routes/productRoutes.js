@@ -20,14 +20,24 @@ import {
 
 export const productRouter = Router();
 
-productRouter.get('/', requirePermission(P.PRODUCTS_VIEW), validate({ query: listProductsSchema }), products.list);
+productRouter.get(
+  '/',
+  requirePermission(P.PRODUCTS_VIEW),
+  validate({ query: listProductsSchema }),
+  products.list,
+);
 productRouter.get(
   '/search',
   requirePermission(P.PRODUCTS_VIEW),
   validate({ query: quickSearchSchema }),
   products.search,
 );
-productRouter.get('/:id', requirePermission(P.PRODUCTS_VIEW), validate({ params: idParam }), products.get);
+productRouter.get(
+  '/:id',
+  requirePermission(P.PRODUCTS_VIEW),
+  validate({ params: idParam }),
+  products.get,
+);
 productRouter.post(
   '/',
   requirePermission(P.PRODUCTS_CREATE),
@@ -40,18 +50,33 @@ productRouter.patch(
   validate({ params: idParam, body: updateProductSchema }),
   products.update,
 );
-productRouter.delete('/:id', requirePermission(P.PRODUCTS_DELETE), validate({ params: idParam }), products.remove);
+productRouter.delete(
+  '/:id',
+  requirePermission(P.PRODUCTS_DELETE),
+  validate({ params: idParam }),
+  products.remove,
+);
 
 export const inventoryRouter = Router();
 
-inventoryRouter.get('/', requirePermission(P.INVENTORY_VIEW), validate({ query: listProductsSchema }), inventory.stock);
+inventoryRouter.get(
+  '/',
+  requirePermission(P.INVENTORY_VIEW),
+  validate({ query: listProductsSchema }),
+  inventory.stock,
+);
 inventoryRouter.get(
   '/ledger',
   requirePermission(P.INVENTORY_VIEW),
   validate({ query: ledgerQuerySchema }),
   inventory.ledger,
 );
-inventoryRouter.post('/stock-in', requirePermission(P.INVENTORY_IN), validate({ body: stockInSchema }), inventory.stockIn);
+inventoryRouter.post(
+  '/stock-in',
+  requirePermission(P.INVENTORY_IN),
+  validate({ body: stockInSchema }),
+  inventory.stockIn,
+);
 inventoryRouter.post(
   '/stock-out',
   requirePermission(P.INVENTORY_OUT),

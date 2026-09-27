@@ -10,7 +10,11 @@ export function createMasterController(service, entityName) {
       return sendSuccess(res, await service.getById(req.validated.params.id));
     },
     async create(req, res) {
-      return sendCreated(res, await service.create(req.validated.body, req.context), `${entityName} created`);
+      return sendCreated(
+        res,
+        await service.create(req.validated.body, req.context),
+        `${entityName} created`,
+      );
     },
     async update(req, res) {
       const record = await service.update(req.validated.params.id, req.validated.body, req.context);

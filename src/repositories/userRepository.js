@@ -37,13 +37,19 @@ export async function findAuthUserById(id) {
 export async function findForLogin(login) {
   const value = login.toLowerCase();
   const user = await baseQuery()
-    .where((q) => q.whereRaw('lower(u.username) = ?', [value]).orWhereRaw('lower(u.email) = ?', [value]))
+    .where((q) =>
+      q.whereRaw('lower(u.username) = ?', [value]).orWhereRaw('lower(u.email) = ?', [value]),
+    )
     .first(...PUBLIC_COLUMNS, 'u.password_hash as passwordHash');
   return user ?? null;
 }
 
 export async function findById(id, trx = db) {
-  return (await baseQuery(trx).where('u.id', id).first(...PUBLIC_COLUMNS)) ?? null;
+  return (
+    (await baseQuery(trx)
+      .where('u.id', id)
+      .first(...PUBLIC_COLUMNS)) ?? null
+  );
 }
 
 export async function findPasswordHash(id) {

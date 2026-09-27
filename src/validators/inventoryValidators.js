@@ -1,14 +1,9 @@
 import { z } from 'zod';
+import { todayIso } from '../utils/date.js';
 import { TRANSACTION_TYPES } from '../constants/transactionTypes.js';
 import { LEDGER_SORT_FIELDS } from '../repositories/inventoryRepository.js';
 import { listQuerySchema } from '../utils/pagination.js';
 import { isoDate, money, optionalId, optionalText, quantity, requiredText } from './common.js';
-
-function todayIso() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
 
 /** Movement date: optional, defaults to today on the server, never in the future. */
 const movementDate = isoDate
@@ -40,7 +35,10 @@ export const stockOutSchema = z.object({
 export const adjustmentSchema = z
   .object({
     productId,
-    adjustmentCodeId: z.coerce.number({ error: 'Select a reason' }).int().positive('Select a reason'),
+    adjustmentCodeId: z.coerce
+      .number({ error: 'Select a reason' })
+      .int()
+      .positive('Select a reason'),
     mode: z.enum(['IN', 'OUT', 'SET']),
     // For SET this is the physical count and may be 0.
     quantity: z.coerce.number({ error: 'Quantity must be a number' }).min(0).max(99_999_999_999),
@@ -57,7 +55,9 @@ const typeList = z
   .string()
   .optional()
   .transform((v) => (v ? v.split(',').map((t) => t.trim().toUpperCase()) : undefined))
-  .refine((v) => !v || v.every((t) => TRANSACTION_TYPES.includes(t)), { message: 'Unknown transaction type' });
+  .refine((v) => !v || v.every((t) => TRANSACTION_TYPES.includes(t)), {
+    message: 'Unknown transaction type',
+  });
 
 export const ledgerQuerySchema = listQuerySchema(LEDGER_SORT_FIELDS, 'createdAt', {
   sortOrder: z.enum(['asc', 'desc']).default('desc'),

@@ -18,7 +18,9 @@ async function resolvePermissionIds(codes, trx) {
   const rows = await roleRepository.findPermissionIds(unique, trx);
   if (rows.length !== unique.length) {
     const known = new Set(rows.map((r) => r.code));
-    throw ApiError.badRequest(`Unknown permissions: ${unique.filter((c) => !known.has(c)).join(', ')}`);
+    throw ApiError.badRequest(
+      `Unknown permissions: ${unique.filter((c) => !known.has(c)).join(', ')}`,
+    );
   }
   return rows.map((r) => r.id);
 }
@@ -48,7 +50,11 @@ export async function updateRole(id, { name, description, permissions }, context
 
     await roleRepository.update(id, { name, description }, trx);
     if (permissions !== undefined) {
-      await roleRepository.replacePermissions(id, await resolvePermissionIds(permissions, trx), trx);
+      await roleRepository.replacePermissions(
+        id,
+        await resolvePermissionIds(permissions, trx),
+        trx,
+      );
     }
     const after = await roleRepository.findById(id, trx);
     await auditService.log(

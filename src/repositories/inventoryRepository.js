@@ -70,7 +70,9 @@ export async function findTransactionById(id, trx = db) {
   return (await ledgerQuery(trx).where('t.id', id).first(LEDGER_COLUMNS)) ?? null;
 }
 
-export const LEDGER_SORT_FIELDS = { createdAt: 't.created_at', txnDate: 't.txn_date' };
+// Ledger rows for a product are inserted while its stock row is locked, so the id order is
+// the true posting order ("createdAt" sorts by id for that reason).
+export const LEDGER_SORT_FIELDS = { createdAt: 't.id', txnDate: 't.txn_date' };
 
 export function listLedger(warehouseId, filters) {
   const query = ledgerQuery().select(LEDGER_COLUMNS).where('t.warehouse_id', warehouseId);

@@ -91,7 +91,9 @@ export async function up(knex) {
   await knex.raw('CREATE INDEX idx_products_brand ON products (brand_id)');
   // Trigram indexes power fast "contains" search from the mobile search screen.
   for (const col of ['name', 'sku', 'part_number', 'machine_model', 'hsn_code']) {
-    await knex.raw(`CREATE INDEX idx_products_${col}_trgm ON products USING gin (${col} gin_trgm_ops)`);
+    await knex.raw(
+      `CREATE INDEX idx_products_${col}_trgm ON products USING gin (${col} gin_trgm_ops)`,
+    );
   }
   await knex.raw(updatedAtTrigger('products'));
 }

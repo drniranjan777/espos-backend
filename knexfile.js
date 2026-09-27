@@ -11,7 +11,13 @@ const config = {
     password: env.DB_PASSWORD,
     ssl: env.DB_SSL ? { rejectUnauthorized: false } : false,
   },
-  pool: { min: env.DB_POOL_MIN, max: env.DB_POOL_MAX },
+  pool: {
+    min: env.DB_POOL_MIN,
+    max: env.DB_POOL_MAX,
+    // CURRENT_DATE / now()::date must follow the business timezone, not the server's.
+    afterCreate: (conn, done) =>
+      conn.query(`SET TIME ZONE '${env.APP_TIMEZONE}'`, (err) => done(err, conn)),
+  },
   migrations: {
     directory: './src/migrations',
     tableName: 'knex_migrations',

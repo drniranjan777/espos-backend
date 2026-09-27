@@ -2,7 +2,12 @@ import { createMasterRepository } from './masterRepository.js';
 
 export const categoryRepository = createMasterRepository({
   table: 'categories',
-  fields: { name: 'name', parentId: 'parent_id', description: 'description', isActive: 'is_active' },
+  fields: {
+    name: 'name',
+    parentId: 'parent_id',
+    description: 'description',
+    isActive: 'is_active',
+  },
   readOnly: { parentName: 'p.name' },
   searchColumns: ['name'],
   orderBy: 'name',

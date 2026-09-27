@@ -29,7 +29,11 @@ export function createMasterService(repository, { module, entityName, beforeSave
         await beforeSave?.(data, null, trx);
         const id = await repository.create(data, context.userId, trx);
         const created = await getById(id, trx);
-        await auditService.log(context, { action: AUDIT_ACTION.CREATE, module, recordId: id, newValue: created }, trx);
+        await auditService.log(
+          context,
+          { action: AUDIT_ACTION.CREATE, module, recordId: id, newValue: created },
+          trx,
+        );
         return created;
       });
     },
@@ -54,7 +58,11 @@ export function createMasterService(repository, { module, entityName, beforeSave
       return db.transaction(async (trx) => {
         const before = await getById(id, trx);
         await repository.remove(id, trx);
-        await auditService.log(context, { action: AUDIT_ACTION.DELETE, module, recordId: id, oldValue: before }, trx);
+        await auditService.log(
+          context,
+          { action: AUDIT_ACTION.DELETE, module, recordId: id, oldValue: before },
+          trx,
+        );
       });
     },
   };

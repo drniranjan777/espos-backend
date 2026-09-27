@@ -73,7 +73,12 @@ export async function create({ openingStock, ...data }, context) {
     const product = await getOrThrow(id, warehouseId, trx);
     await auditService.log(
       context,
-      { action: AUDIT_ACTION.CREATE, module: AUDIT_MODULE.PRODUCTS, recordId: id, newValue: product },
+      {
+        action: AUDIT_ACTION.CREATE,
+        module: AUDIT_MODULE.PRODUCTS,
+        recordId: id,
+        newValue: product,
+      },
       trx,
     );
     return product;
@@ -89,7 +94,9 @@ export async function update(id, data, context) {
     const mrp = data.mrp ?? before.mrp;
     const sellingPrice = data.sellingPrice ?? before.sellingPrice;
     if (mrp > 0 && sellingPrice > mrp) {
-      throw ApiError.validation([{ field: 'sellingPrice', message: 'Selling price cannot be higher than MRP' }]);
+      throw ApiError.validation([
+        { field: 'sellingPrice', message: 'Selling price cannot be higher than MRP' },
+      ]);
     }
 
     if (data.unitId !== undefined && data.unitId !== before.unitId) {
@@ -104,7 +111,13 @@ export async function update(id, data, context) {
     const after = await getOrThrow(id, warehouseId, trx);
     await auditService.log(
       context,
-      { action: AUDIT_ACTION.UPDATE, module: AUDIT_MODULE.PRODUCTS, recordId: id, oldValue: before, newValue: after },
+      {
+        action: AUDIT_ACTION.UPDATE,
+        module: AUDIT_MODULE.PRODUCTS,
+        recordId: id,
+        oldValue: before,
+        newValue: after,
+      },
       trx,
     );
     return after;
@@ -125,7 +138,12 @@ export async function remove(id, context) {
     await productRepository.remove(id, trx);
     await auditService.log(
       context,
-      { action: AUDIT_ACTION.DELETE, module: AUDIT_MODULE.PRODUCTS, recordId: id, oldValue: before },
+      {
+        action: AUDIT_ACTION.DELETE,
+        module: AUDIT_MODULE.PRODUCTS,
+        recordId: id,
+        oldValue: before,
+      },
       trx,
     );
   });

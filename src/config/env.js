@@ -27,6 +27,20 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 
+  // Business timezone: defines what "today" means for dashboards, stock dates and invoices.
+  APP_TIMEZONE: z
+    .string()
+    .default('Asia/Kolkata')
+    .refine((tz) => {
+      if (!/^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(tz)) return false;
+      try {
+        new Intl.DateTimeFormat('en', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'APP_TIMEZONE must be a valid IANA timezone, e.g. Asia/Kolkata'),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   UPLOAD_DIR: z.string().default('uploads'),
   SEED_ADMIN_PASSWORD: z.string().min(8).default('Admin@123'),

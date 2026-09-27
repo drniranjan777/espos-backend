@@ -20,18 +20,24 @@ describe('auth', () => {
   });
 
   it('accepts the username case-insensitively', async () => {
-    const res = await request(app).post('/api/v1/auth/login').send({ ...ADMIN, login: 'ADMIN' });
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ ...ADMIN, login: 'ADMIN' });
     expect(res.status).toBe(200);
   });
 
   it('rejects a wrong password with a generic message', async () => {
-    const res = await request(app).post('/api/v1/auth/login').send({ login: 'admin', password: 'nope' });
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ login: 'admin', password: 'nope' });
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
   });
 
   it('rejects an unknown user with the same message', async () => {
-    const res = await request(app).post('/api/v1/auth/login').send({ login: 'ghost', password: 'nope' });
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ login: 'ghost', password: 'nope' });
     expect(res.status).toBe(401);
     expect(res.body.error.message).toBe('Invalid username or password');
   });
@@ -77,7 +83,9 @@ describe('auth', () => {
     const loginRes = await request(app).post('/api/v1/auth/login').send(ADMIN);
     const cookie = refreshCookie(loginRes).split(';')[0];
     expect((await request(app).post('/api/v1/auth/logout').set('Cookie', cookie)).status).toBe(200);
-    expect((await request(app).post('/api/v1/auth/refresh').set('Cookie', cookie)).status).toBe(401);
+    expect((await request(app).post('/api/v1/auth/refresh').set('Cookie', cookie)).status).toBe(
+      401,
+    );
   });
 
   it('blocks deactivated users immediately, even with a valid access token', async () => {

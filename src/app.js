@@ -22,6 +22,10 @@ export function createApp() {
       logger,
       genReqId: (req) => req.headers['x-request-id'] ?? randomUUID(),
       autoLogging: { ignore: (req) => req.url === '/api/v1/health' },
+      serializers: {
+        req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
     }),
   );
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));

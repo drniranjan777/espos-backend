@@ -1,6 +1,12 @@
 import * as auditRepository from '../repositories/auditRepository.js';
 
-const SENSITIVE_KEYS = new Set(['password', 'password_hash', 'passwordHash', 'token', 'token_hash']);
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'password_hash',
+  'passwordHash',
+  'token',
+  'token_hash',
+]);
 
 /**
  * Serialises a value for a JSONB column with secrets removed. Passed as a string because
@@ -17,7 +23,11 @@ function toJson(value) {
  *
  * @param {object} context  request context: { userId, ip, userAgent }
  */
-export async function log(context, { action, module, recordId, oldValue, newValue, warehouseId }, trx) {
+export async function log(
+  context,
+  { action, module, recordId, oldValue, newValue, warehouseId },
+  trx,
+) {
   await auditRepository.insert(
     {
       user_id: context?.userId ?? null,

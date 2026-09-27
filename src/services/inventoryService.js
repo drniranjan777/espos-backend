@@ -51,7 +51,9 @@ function formatQty(value, unitCode) {
 export async function applyMovement(trx, movement, context) {
   const { productId, warehouseId, type, requireActiveProduct = true } = movement;
   const quantity = new Decimal(movement.quantity);
-  if (!quantity.isFinite() || quantity.lte(0)) throw ApiError.badRequest('Quantity must be greater than 0');
+  if (!quantity.isFinite() || quantity.lte(0)) {
+    throw ApiError.badRequest('Quantity must be greater than 0');
+  }
 
   const product = await loadProductForMovement(trx, productId);
   if (requireActiveProduct && !product.is_active) {
@@ -187,7 +189,9 @@ export async function adjust(data, context) {
     }
 
     if (code.direction !== 'BOTH' && code.direction !== direction) {
-      throw ApiError.badRequest(`"${code.name}" can only be used to ${code.direction === 'IN' ? 'add' : 'remove'} stock`);
+      throw ApiError.badRequest(
+        `"${code.name}" can only be used to ${code.direction === 'IN' ? 'add' : 'remove'} stock`,
+      );
     }
 
     const result = await applyMovement(

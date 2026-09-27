@@ -33,7 +33,13 @@ export async function seed(knex) {
     }
 
     await trx('permissions')
-      .insert(PERMISSION_DEFINITIONS.map(([code, module, description]) => ({ code, module, description })))
+      .insert(
+        PERMISSION_DEFINITIONS.map(([code, module, description]) => ({
+          code,
+          module,
+          description,
+        })),
+      )
       .onConflict('code')
       .merge(['module', 'description']);
 
@@ -53,7 +59,12 @@ export async function seed(knex) {
       // so later admin customisations are preserved.
       if (isNew || role.name === ADMIN_ROLE_NAME) {
         await trx('role_permissions')
-          .insert(role.permissions.map((code) => ({ role_id: existing.id, permission_id: permissionIds[code] })))
+          .insert(
+            role.permissions.map((code) => ({
+              role_id: existing.id,
+              permission_id: permissionIds[code],
+            })),
+          )
           .onConflict(['role_id', 'permission_id'])
           .ignore();
       }
@@ -70,7 +81,12 @@ export async function seed(knex) {
     await insertMissing(trx, 'units', DEFAULT_UNITS, 'code');
 
     await trx('company_settings')
-      .insert({ id: 1, company_name: 'My Company', invoice_prefix: 'INV', invoice_number_padding: 4 })
+      .insert({
+        id: 1,
+        company_name: 'My Company',
+        invoice_prefix: 'INV',
+        invoice_number_padding: 4,
+      })
       .onConflict('id')
       .ignore();
 

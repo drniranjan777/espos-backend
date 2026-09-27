@@ -17,7 +17,9 @@ export async function up(knex) {
   });
   // Last line of defence against negative stock; the service layer checks first
   // and returns a friendly error.
-  await knex.raw('ALTER TABLE inventory ADD CONSTRAINT chk_inventory_non_negative CHECK (quantity >= 0)');
+  await knex.raw(
+    'ALTER TABLE inventory ADD CONSTRAINT chk_inventory_non_negative CHECK (quantity >= 0)',
+  );
   await knex.raw(updatedAtTrigger('inventory'));
 
   await knex.schema.createTable('adjustment_codes', (t) => {
@@ -54,8 +56,11 @@ export async function up(knex) {
     t.text('notes');
     t.date('txn_date').notNullable().defaultTo(knex.raw('CURRENT_DATE'));
     t.integer('created_by').references('users.id').onDelete('RESTRICT');
-    t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    t.index(['product_id', 'created_at']);
+    // clock_timestamp(): the actual insert time, not the (earlier) transaction start time.
+    t.timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.raw('clock_timestamp()'));
+    t.index(['product_id', 'id']);
     t.index(['warehouse_id', 'txn_date']);
     t.index(['type', 'txn_date']);
     t.index(['reference_type', 'reference_id']);
@@ -89,7 +94,10 @@ export async function up(knex) {
       .unique()
       .references('inventory_transactions.id')
       .onDelete('RESTRICT');
-    t.integer('adjustment_code_id').notNullable().references('adjustment_codes.id').onDelete('RESTRICT');
+    t.integer('adjustment_code_id')
+      .notNullable()
+      .references('adjustment_codes.id')
+      .onDelete('RESTRICT');
     t.string('reason', 255).notNullable();
     // Set when the adjustment came from a physical count ("set stock to X").
     t.decimal('physical_count', 14, 3);
@@ -100,7 +108,9 @@ export async function up(knex) {
 
 export async function down(knex) {
   await knex.schema.dropTableIfExists('stock_adjustments');
-  await knex.raw('DROP TRIGGER IF EXISTS trg_inventory_transactions_immutable ON inventory_transactions');
+  await knex.raw(
+    'DROP TRIGGER IF EXISTS trg_inventory_transactions_immutable ON inventory_transactions',
+  );
   await knex.schema.dropTableIfExists('inventory_transactions');
   await knex.raw('DROP FUNCTION IF EXISTS prevent_ledger_mutation()');
   await knex.schema.dropTableIfExists('adjustment_codes');

@@ -14,11 +14,19 @@ export async function get(req, res) {
 }
 
 export async function create(req, res) {
-  return sendCreated(res, await productService.create(req.validated.body, req.context), 'Product created');
+  return sendCreated(
+    res,
+    await productService.create(req.validated.body, req.context),
+    'Product created',
+  );
 }
 
 export async function update(req, res) {
-  const product = await productService.update(req.validated.params.id, req.validated.body, req.context);
+  const product = await productService.update(
+    req.validated.params.id,
+    req.validated.body,
+    req.context,
+  );
   return sendSuccess(res, product, { message: 'Product updated' });
 }
 

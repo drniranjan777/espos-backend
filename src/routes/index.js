@@ -3,6 +3,9 @@ import { checkDatabaseConnection } from '../config/database.js';
 import { authenticate } from '../middleware/auth.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { authRouter } from './authRoutes.js';
+import { customerRouter } from './customerRoutes.js';
+import { invoiceRouter } from './invoiceRoutes.js';
+import { settingsRouter } from './settingsRoutes.js';
 import {
   adjustmentCodeRouter,
   brandRouter,
@@ -11,6 +14,7 @@ import {
   unitRouter,
 } from './masterRoutes.js';
 import { inventoryRouter, productRouter } from './productRoutes.js';
+import { auditRouter, dashboardRouter, reportRouter } from './reportRoutes.js';
 import { roleRouter, userRouter } from './userRoutes.js';
 
 export const apiRouter = Router();
@@ -33,3 +37,9 @@ apiRouter.use('/gst-rates', gstRateRouter);
 apiRouter.use('/adjustment-codes', adjustmentCodeRouter);
 apiRouter.use('/products', productRouter);
 apiRouter.use('/inventory', inventoryRouter);
+apiRouter.use('/customers', customerRouter);
+apiRouter.use('/invoices', invoiceRouter);
+apiRouter.use('/settings', settingsRouter);
+apiRouter.use('/dashboard', dashboardRouter);
+apiRouter.use('/reports', reportRouter);
+apiRouter.use('/audit-logs', auditRouter);

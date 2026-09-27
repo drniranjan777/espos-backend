@@ -93,7 +93,10 @@ export function list(warehouseId, filters) {
     query.where((q) =>
       q
         .where('p.category_id', filters.categoryId)
-        .orWhereIn('p.category_id', db('categories').select('id').where('parent_id', filters.categoryId)),
+        .orWhereIn(
+          'p.category_id',
+          db('categories').select('id').where('parent_id', filters.categoryId),
+        ),
     );
   }
   if (filters.brandId) query.where('p.brand_id', filters.brandId);
@@ -146,7 +149,9 @@ export async function create(data, userId, trx) {
 }
 
 export async function update(id, data, userId, trx) {
-  await trx('products').where({ id }).update({ ...toRow(data), updated_by: userId });
+  await trx('products')
+    .where({ id })
+    .update({ ...toRow(data), updated_by: userId });
 }
 
 export async function hasHistory(id, trx) {

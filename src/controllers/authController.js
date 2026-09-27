@@ -17,7 +17,12 @@ function setRefreshCookie(res, token, expiresAt) {
 }
 
 function clearRefreshCookie(res) {
-  res.clearCookie(REFRESH_COOKIE, { path: COOKIE_PATH, httpOnly: true, sameSite: 'strict', secure: env.isProduction });
+  res.clearCookie(REFRESH_COOKIE, {
+    path: COOKIE_PATH,
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: env.isProduction,
+  });
 }
 
 function sessionResponse(res, session) {

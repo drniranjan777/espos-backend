@@ -23,7 +23,12 @@ function fromDatabaseError(err) {
   const known = CONSTRAINT_MESSAGES[err.constraint];
   switch (err.code) {
     case '23505': // unique_violation
-      return ApiError.conflict(known?.[1] ?? 'A record with these details already exists', 'DUPLICATE');
+      return ApiError.conflict(
+        known?.[1] ?? 'A record with these details already exists',
+        'DUPLICATE',
+      );
+    case '23001': // restrict_violation (ON DELETE RESTRICT)
+      return ApiError.conflict('This record is in use and cannot be deleted', 'IN_USE');
     case '23503': // foreign_key_violation
       return err.message.includes('update or delete')
         ? ApiError.conflict('This record is in use and cannot be deleted', 'IN_USE')
@@ -46,12 +51,14 @@ function normalize(err) {
     return ApiError.badRequest(err.code === 'LIMIT_FILE_SIZE' ? 'File is too large' : err.message);
   }
   if (err.type === 'entity.parse.failed') return ApiError.badRequest('Malformed JSON body');
-  if (err.type === 'entity.too.large') return new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Request is too large');
+  if (err.type === 'entity.too.large') {
+    return new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Request is too large');
+  }
   if (typeof err.code === 'string' && /^[0-9A-Z]{5}$/.test(err.code)) return fromDatabaseError(err);
   return null;
 }
 
-// eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity.
+// Express identifies error handlers by their four-argument signature.
 export function errorHandler(err, req, res, _next) {
   const apiError = normalize(err);
 

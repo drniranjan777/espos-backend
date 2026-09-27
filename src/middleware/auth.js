@@ -17,11 +17,17 @@ export async function authenticate(req, _res, next) {
     payload = jwt.verify(token, env.JWT_ACCESS_SECRET);
   } catch (err) {
     const message = err.name === 'TokenExpiredError' ? 'Session expired' : 'Invalid token';
-    throw new ApiError(401, err.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'UNAUTHORIZED', message);
+    throw new ApiError(
+      401,
+      err.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'UNAUTHORIZED',
+      message,
+    );
   }
 
   const user = await userRepository.findAuthUserById(Number(payload.sub));
-  if (!user || !user.isActive) throw ApiError.unauthorized('Account is inactive or no longer exists');
+  if (!user || !user.isActive) {
+    throw ApiError.unauthorized('Account is inactive or no longer exists');
+  }
 
   req.user = user;
   req.context = {

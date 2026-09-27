@@ -64,7 +64,10 @@ export async function updateUser(id, { password, roleId, isActive, ...data }, co
       currentRole.isSystem &&
       before.isActive &&
       ((roleId !== undefined && roleId !== before.roleId) || isActive === false);
-    if (leavesSystemRole && (await userRepository.countActiveWithRole(before.roleId, id, trx)) === 0) {
+    if (
+      leavesSystemRole &&
+      (await userRepository.countActiveWithRole(before.roleId, id, trx)) === 0
+    ) {
       throw ApiError.badRequest(`At least one active ${currentRole.name} user is required`);
     }
 
