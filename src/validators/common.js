@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/**
+ * Normalises optional input: '' / null become null (clears the column), while undefined stays
+ * undefined so PATCH requests leave omitted fields untouched.
+ */
+const emptyToNull = (v) => (v === undefined ? undefined : v || null);
+
 export const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 /** Optional trimmed string; empty strings become null so they clear the column. */
@@ -9,7 +15,7 @@ export const optionalText = (max) =>
     .trim()
     .max(max)
     .nullish()
-    .transform((v) => (v ? v : null));
+    .transform(emptyToNull);
 
 export const requiredText = (max, label = 'This field') =>
   z.string({ error: `${label} is required` }).trim().min(1, `${label} is required`).max(max);
@@ -35,7 +41,7 @@ export const booleanQuery = z
 
 export const isoDate = z.iso.date({ error: 'Use the format YYYY-MM-DD' });
 
-export const optionalId = z.coerce.number().int().positive().nullish().transform((v) => v ?? null);
+export const optionalId = z.coerce.number().int().positive().nullish();
 
 export const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -46,37 +52,37 @@ export const gstin = z
   .trim()
   .toUpperCase()
   .nullish()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || GSTIN_REGEX.test(v), { message: 'Invalid GSTIN format' });
+  .transform(emptyToNull)
+  .refine((v) => v == null || GSTIN_REGEX.test(v), { message: 'Invalid GSTIN format' });
 
 export const stateCode = z
   .string()
   .trim()
   .nullish()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || STATE_CODE_REGEX.test(v), { message: 'State code must be 2 digits' });
+  .transform(emptyToNull)
+  .refine((v) => v == null || STATE_CODE_REGEX.test(v), { message: 'State code must be 2 digits' });
 
 export const mobile = z
   .string()
   .trim()
   .nullish()
-  .transform((v) => (v ? v.replace(/[\s-]/g, '') : null))
-  .refine((v) => v === null || /^(\+91)?[6-9][0-9]{9}$/.test(v), { message: 'Enter a valid 10-digit mobile number' });
+  .transform((v) => emptyToNull(v?.replace(/[\s-]/g, '')))
+  .refine((v) => v == null || /^(\+91)?[6-9][0-9]{9}$/.test(v), { message: 'Enter a valid 10-digit mobile number' });
 
 export const email = z
   .string()
   .trim()
   .toLowerCase()
   .nullish()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || z.email().safeParse(v).success, { message: 'Enter a valid email' });
+  .transform(emptyToNull)
+  .refine((v) => v == null || z.email().safeParse(v).success, { message: 'Enter a valid email' });
 
 export const pincode = z
   .string()
   .trim()
   .nullish()
-  .transform((v) => (v ? v : null))
-  .refine((v) => v === null || /^[1-9][0-9]{5}$/.test(v), { message: 'Pincode must be 6 digits' });
+  .transform(emptyToNull)
+  .refine((v) => v == null || /^[1-9][0-9]{5}$/.test(v), { message: 'Pincode must be 6 digits' });
 
 export const password = z
   .string()

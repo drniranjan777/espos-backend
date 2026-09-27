@@ -58,13 +58,14 @@ export async function login({ login, password }, context) {
 export async function refresh(rawToken, context) {
   if (!rawToken) throw ApiError.unauthorized('Session expired');
 
-  return db.transaction(async (trx) => {
+  const result = await db.transaction(async (trx) => {
     const stored = await refreshTokenRepository.findByHash(hashToken(rawToken), trx);
     if (!stored) throw ApiError.unauthorized('Session expired');
 
+    // Committed (not thrown) so the revocation below is not rolled back.
     if (stored.revoked_at) {
       await refreshTokenRepository.revokeAllForUser(stored.user_id, trx);
-      throw ApiError.unauthorized('Session expired');
+      return { reused: true };
     }
     if (new Date(stored.expires_at) <= new Date()) throw ApiError.unauthorized('Session expired');
 
@@ -72,8 +73,11 @@ export async function refresh(rawToken, context) {
     if (!user?.isActive) throw ApiError.unauthorized('Account is inactive');
 
     await refreshTokenRepository.revoke(stored.id, trx);
-    return issueSession(stored.user_id, context, trx);
+    return { session: await issueSession(stored.user_id, context, trx) };
   });
+
+  if (result.reused) throw ApiError.unauthorized('Session expired');
+  return result.session;
 }
 
 export async function logout(rawToken, context) {
