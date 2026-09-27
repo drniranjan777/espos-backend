@@ -2,6 +2,8 @@
 
 Node.js + Express 5 + PostgreSQL (Knex). Serves `/api/v1`.
 
+Web app (frontend): https://github.com/drniranjan777/epos-frontend
+
 ## Setup
 
 ```bash
