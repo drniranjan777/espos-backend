@@ -74,23 +74,32 @@ Layering: **route → controller → service → repository**. Controllers never
 - **Invoices**: `DRAFT` (editable, no stock impact) → `FINAL` (gap-free number per financial year e.g. `INV/2026-27/0001`, stock deducted, customer/company details snapshotted) → `CANCELLED` (stock returned, number kept).
 - **Auth**: 15-minute JWT access token in memory + rotating refresh token in an httpOnly cookie (stored hashed; reuse revokes all sessions). Users are re-read on every request, so deactivation and permission changes apply immediately.
 - **Permissions** are data (`module.action` codes), not role names. The Admin role always holds all permissions and cannot be deleted; the last active admin cannot be deactivated.
-- **Multi-warehouse ready**: `warehouses` table with a default warehouse; `warehouse_id` on stock, ledger, invoices and audit logs.
+- **Branches**: every stock row, ledger entry, stock entry, invoice and audit entry belongs to a branch (`warehouses`). Users are assigned to branches (`warehouse_users`).
+- **Stock entries**: multi-part Stock IN / OUT saved as one numbered document (`SI/…`, `SO/…`); all lines succeed or none do, and every short line is reported. An invoice number is required unless "No bill" is set.
+- **Transfers**: `REQUESTED → IN_TRANSIT (approved) → RECEIVED`, or `REJECTED` / `CANCELLED`. Stock leaves the source on approval and arrives on receipt; cancelling an in-transit transfer returns it. Numbered `ST/…`.
 
 ## API overview (`/api/v1`)
 
-| Area                | Endpoints                                                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Auth                | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/change-password`                      |
-| Users & roles       | `/users`, `/roles`, `GET /roles/permissions`                                                                                      |
-| Masters             | `/categories`, `/brands`, `/units`, `/gst-rates`, `/adjustment-codes`                                                             |
-| Products            | `/products`, `GET /products/search?q=`                                                                                            |
-| Inventory           | `GET /inventory`, `GET /inventory/ledger`, `POST /inventory/stock-in`, `POST /inventory/stock-out`, `POST /inventory/adjustments` |
-| Customers           | `/customers`                                                                                                                      |
-| Invoices            | `/invoices`, `POST /invoices/:id/finalize`, `POST /invoices/:id/cancel`, `GET /invoices/:id/pdf`                                  |
-| Settings            | `GET/PUT /settings/company`, `POST/DELETE /settings/company/logo`, `GET /settings/states`                                         |
-| Dashboard & reports | `GET /dashboard/summary`, `GET /dashboard/movement?range=daily                                                                    | weekly | monthly`, `GET /reports/stock-valuation`, `GET /reports/movement?from&to` |
-| Audit               | `GET /audit-logs`                                                                                                                 |
-| Health              | `GET /health`                                                                                                                     |
+| Area                | Endpoints                                                                                                                                       |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` (includes the user's branches), `PATCH /auth/change-password`     |
+| Users & roles       | `/users` (with `branchIds`), `/roles`, `GET /roles/permissions`                                                                                 |
+| Branches            | `GET /branches`, `GET /branches/mine`, `POST /branches`, `PATCH /branches/:id`                                                                  |
+| Masters             | `/categories`, `/brands`, `/units`, `/gst-rates`, `/adjustment-codes`                                                                           |
+| Products            | `/products`, `GET /products/search?q=`                                                                                                          |
+| Inventory           | `GET /inventory`, `GET /inventory/ledger`, `POST /inventory/stock-in`, `POST /inventory/stock-out`, `POST /inventory/adjustments`               |
+| Stock entries       | `GET /stock-movements`, `GET /stock-movements/:id`, `POST /stock-movements` (multi-part IN / OUT)                                               |
+| Transfers           | `GET /transfers`, `GET /transfers/:id`, `POST /transfers`, `POST /transfers/:id/approve`, `/reject`, `/receive`, `/cancel`                      |
+| Customers           | `/customers`                                                                                                                                    |
+| Invoices            | `/invoices`, `POST /invoices/:id/finalize`, `POST /invoices/:id/cancel`, `GET /invoices/:id/pdf`                                                |
+| Settings            | `GET/PUT /settings/company`, `POST/DELETE /settings/company/logo`, `GET /settings/states`                                                       |
+| Dashboard & reports | `GET /dashboard/summary`, `GET /dashboard/movement?range=daily/weekly/monthly`, `GET /reports/stock-valuation`, `GET /reports/movement?from&to` |
+| Audit               | `GET /audit-logs`                                                                                                                               |
+| Health              | `GET /health`                                                                                                                                   |
+
+**Branch scoping:** products (stock figures), inventory, stock entries, transfers, invoices, dashboard and
+reports work in the branch sent in the `X-Branch-Id` header (default: the user's first branch). The API
+returns `403 BRANCH_FORBIDDEN` for branches the user is not assigned to (`branches.all` grants every branch).
 
 Responses: `{ success: true, data, meta? }` or `{ success: false, error: { code, message, details? } }`.
 Lists accept `page`, `limit` (max 100), `search`, `sortBy`, `sortOrder` plus module filters.
