@@ -1,9 +1,9 @@
 import { db } from '../config/database.js';
 
-// What counts as stock "IN" and "OUT" on the dashboard. Adjustments are corrections,
-// not movements, so they are excluded; invoice cancellations reverse invoice OUTs.
-const IN_TYPES = ['OPENING', 'IN'];
-const OUT_TYPES = ['OUT', 'INVOICE_OUT'];
+// What counts as stock "IN" and "OUT" for a branch. Transfers are real movements for the
+// branch; adjustments are corrections and invoice cancellations reverse invoice OUTs.
+const IN_TYPES = ['OPENING', 'IN', 'TRANSFER_IN', 'TRANSFER_RETURN'];
+const OUT_TYPES = ['OUT', 'INVOICE_OUT', 'TRANSFER_OUT'];
 
 export async function stockSummary(warehouseId) {
   return db('products as p')
@@ -74,6 +74,19 @@ export async function movementSeries(warehouseId, range, today) {
     { unit, today, count, step, inTypes: IN_TYPES, outTypes: OUT_TYPES, warehouseId },
   );
   return rows;
+}
+
+export async function transferCounts(warehouseId) {
+  return db('stock_transfers').first(
+    db.raw(
+      `count(*) FILTER (WHERE status = 'REQUESTED' AND from_warehouse_id = ?)::int as "awaitingApproval"`,
+      [warehouseId],
+    ),
+    db.raw(
+      `count(*) FILTER (WHERE status = 'IN_TRANSIT' AND to_warehouse_id = ?)::int as "incoming"`,
+      [warehouseId],
+    ),
+  );
 }
 
 export async function topMovingProducts(warehouseId, fromDate, limit) {

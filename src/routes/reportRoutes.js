@@ -17,14 +17,17 @@ export const dashboardRouter = Router();
 dashboardRouter.use(requirePermission(P.DASHBOARD_VIEW));
 
 dashboardRouter.get('/summary', async (req, res) =>
-  sendSuccess(res, await dashboardService.getSummary(req.user)),
+  sendSuccess(res, await dashboardService.getSummary(req.user, req.context.warehouseId)),
 );
 
 dashboardRouter.get(
   '/movement',
   validate({ query: z.object({ range: z.enum(['daily', 'weekly', 'monthly']).default('daily') }) }),
   async (req, res) =>
-    sendSuccess(res, await dashboardService.getMovement(req.validated.query.range)),
+    sendSuccess(
+      res,
+      await dashboardService.getMovement(req.validated.query.range, req.context.warehouseId),
+    ),
 );
 
 // ---- Reports ----
@@ -40,7 +43,10 @@ reportRouter.get(
     }),
   }),
   async (req, res) =>
-    sendSuccess(res, await dashboardService.stockValuationReport(req.validated.query)),
+    sendSuccess(
+      res,
+      await dashboardService.stockValuationReport(req.validated.query, req.context.warehouseId),
+    ),
 );
 
 const MAX_REPORT_DAYS = 366;
@@ -59,7 +65,10 @@ reportRouter.get(
     const { from, to } = req.validated.query;
     const days = (Date.parse(to) - Date.parse(from)) / 86_400_000;
     if (days > MAX_REPORT_DAYS) throw ApiError.badRequest('Choose a range of at most one year');
-    return sendSuccess(res, await dashboardService.movementReport(req.validated.query));
+    return sendSuccess(
+      res,
+      await dashboardService.movementReport(req.validated.query, req.context.warehouseId),
+    );
   },
 );
 

@@ -2,15 +2,24 @@ import * as productService from '../services/productService.js';
 import { sendCreated, sendPaginated, sendSuccess } from '../utils/apiResponse.js';
 
 export async function list(req, res) {
-  return sendPaginated(res, await productService.list(req.validated.query));
+  return sendPaginated(
+    res,
+    await productService.list(req.validated.query, req.context.warehouseId),
+  );
 }
 
 export async function search(req, res) {
-  return sendSuccess(res, await productService.quickSearch(req.validated.query.q));
+  return sendSuccess(
+    res,
+    await productService.quickSearch(req.validated.query.q, req.context.warehouseId),
+  );
 }
 
 export async function get(req, res) {
-  return sendSuccess(res, await productService.getById(req.validated.params.id));
+  return sendSuccess(
+    res,
+    await productService.getById(req.validated.params.id, req.context.warehouseId),
+  );
 }
 
 export async function create(req, res) {

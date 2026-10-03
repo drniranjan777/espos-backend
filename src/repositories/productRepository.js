@@ -154,6 +154,24 @@ export async function update(id, data, userId, trx) {
     .update({ ...toRow(data), updated_by: userId });
 }
 
+export async function createStockRows(productId, trx) {
+  await trx.raw(
+    `INSERT INTO inventory (warehouse_id, product_id, quantity)
+     SELECT w.id, ?, 0 FROM warehouses w
+     ON CONFLICT (warehouse_id, product_id) DO NOTHING`,
+    [productId],
+  );
+}
+
+/** True when any branch holds a non-whole quantity of the product. */
+export async function hasFractionalStock(productId, trx) {
+  const row = await trx('inventory')
+    .where({ product_id: productId })
+    .whereRaw('quantity <> trunc(quantity)')
+    .first('id');
+  return Boolean(row);
+}
+
 export async function hasHistory(id, trx) {
   const [txn, item] = await Promise.all([
     trx('inventory_transactions').where({ product_id: id }).first('id'),

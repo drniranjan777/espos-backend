@@ -93,13 +93,17 @@ export async function seed(knex) {
     const adminRole = await trx('roles').where({ name: ADMIN_ROLE_NAME }).first('id');
     const admin = await trx('users').whereRaw('lower(username) = ?', ['admin']).first('id');
     if (!admin) {
-      await trx('users').insert({
-        name: 'Administrator',
-        username: 'admin',
-        email: 'admin@example.com',
-        password_hash: await bcrypt.hash(env.SEED_ADMIN_PASSWORD, env.BCRYPT_ROUNDS),
-        role_id: adminRole.id,
-      });
+      const [created] = await trx('users')
+        .insert({
+          name: 'Administrator',
+          username: 'admin',
+          email: 'admin@example.com',
+          password_hash: await bcrypt.hash(env.SEED_ADMIN_PASSWORD, env.BCRYPT_ROUNDS),
+          role_id: adminRole.id,
+        })
+        .returning('id');
+      const defaultBranch = await trx('warehouses').where({ is_default: true }).first('id');
+      await trx('warehouse_users').insert({ warehouse_id: defaultBranch.id, user_id: created.id });
     }
   });
 }

@@ -2,7 +2,6 @@ import { db } from '../config/database.js';
 import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import { TXN_TYPE } from '../constants/transactionTypes.js';
 import * as productRepository from '../repositories/productRepository.js';
-import { getDefaultWarehouseId } from '../repositories/warehouseRepository.js';
 import { ApiError } from '../utils/ApiError.js';
 import * as auditService from './auditService.js';
 import { applyMovement } from './inventoryService.js';
@@ -32,28 +31,22 @@ async function validateReferences(trx, data, before) {
   }
 }
 
-export async function list(filters) {
-  const warehouseId = await getDefaultWarehouseId();
-  return productRepository.list(warehouseId, filters);
-}
+/** Stock figures in all product reads are for the given branch. */
+export const list = (filters, warehouseId) => productRepository.list(warehouseId, filters);
 
-export async function quickSearch(search) {
-  const warehouseId = await getDefaultWarehouseId();
-  return productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
-}
+export const quickSearch = (search, warehouseId) =>
+  productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
 
-export async function getById(id) {
-  const warehouseId = await getDefaultWarehouseId();
-  return getOrThrow(id, warehouseId);
-}
+export const getById = (id, warehouseId) => getOrThrow(id, warehouseId);
 
 export async function create({ openingStock, ...data }, context) {
   return db.transaction(async (trx) => {
     await validateReferences(trx, data);
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = context;
     const id = await productRepository.create(data, context.userId, trx);
 
-    await trx('inventory').insert({ warehouse_id: warehouseId, product_id: id, quantity: 0 });
+    // A stock row in every branch; opening stock goes to the current branch.
+    await productRepository.createStockRows(id, trx);
     // Opening stock is booked through the ledger like any other movement.
     if (openingStock > 0) {
       await applyMovement(
@@ -87,7 +80,7 @@ export async function create({ openingStock, ...data }, context) {
 
 export async function update(id, data, context) {
   return db.transaction(async (trx) => {
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = context;
     const before = await getOrThrow(id, warehouseId, trx);
     await validateReferences(trx, data, before);
 
@@ -101,8 +94,7 @@ export async function update(id, data, context) {
 
     if (data.unitId !== undefined && data.unitId !== before.unitId) {
       const unit = await trx('units').where({ id: data.unitId }).first('allow_decimal');
-      const stock = Number(before.stockQuantity);
-      if (!unit.allow_decimal && !Number.isInteger(stock)) {
+      if (!unit.allow_decimal && (await productRepository.hasFractionalStock(id, trx))) {
         throw ApiError.badRequest('Current stock has decimals; choose a unit that allows decimals');
       }
     }
@@ -127,8 +119,7 @@ export async function update(id, data, context) {
 /** Deletes a product that has never been used. Products with history must be deactivated. */
 export async function remove(id, context) {
   return db.transaction(async (trx) => {
-    const warehouseId = await getDefaultWarehouseId(trx);
-    const before = await getOrThrow(id, warehouseId, trx);
+    const before = await getOrThrow(id, context.warehouseId, trx);
     if (await productRepository.hasHistory(id, trx)) {
       throw ApiError.conflict(
         'This product has stock or invoice history. Mark it inactive instead of deleting it.',

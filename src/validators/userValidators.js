@@ -3,6 +3,9 @@ import { listQuerySchema } from '../utils/pagination.js';
 import { USER_SORT_FIELDS } from '../repositories/userRepository.js';
 import { booleanQuery, email, mobile, password, requiredText } from './common.js';
 
+// Branches the user may work in (ignored for roles that can access every branch).
+const branchIds = z.array(z.coerce.number().int().positive()).max(100);
+
 const username = z
   .string()
   .trim()
@@ -18,6 +21,7 @@ export const createUserSchema = z.object({
   mobile,
   password,
   roleId: z.coerce.number().int().positive({ error: 'Role is required' }),
+  branchIds: branchIds.optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -29,6 +33,7 @@ export const updateUserSchema = z.object({
   password: password.optional(),
   roleId: z.coerce.number().int().positive().optional(),
   isActive: z.boolean().optional(),
+  branchIds: branchIds.optional(),
 });
 
 export const listUsersSchema = listQuerySchema(USER_SORT_FIELDS, 'name', {

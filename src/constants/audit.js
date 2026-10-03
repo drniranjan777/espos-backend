@@ -12,6 +12,9 @@ export const AUDIT_ACTION = Object.freeze({
   STOCK_ADJUST: 'STOCK_ADJUST',
   FINALIZE: 'FINALIZE',
   CANCEL: 'CANCEL',
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  RECEIVE: 'RECEIVE',
 });
 
 export const AUDIT_MODULE = Object.freeze({
@@ -28,4 +31,7 @@ export const AUDIT_MODULE = Object.freeze({
   CUSTOMERS: 'customers',
   INVOICES: 'invoices',
   SETTINGS: 'settings',
+  BRANCHES: 'branches',
+  STOCK_MOVEMENTS: 'stock_movements',
+  TRANSFERS: 'transfers',
 });

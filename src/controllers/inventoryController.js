@@ -4,7 +4,10 @@ import { sendCreated, sendPaginated } from '../utils/apiResponse.js';
 
 /** Current stock list (products with quantities and stock-status filters). */
 export async function stock(req, res) {
-  return sendPaginated(res, await productService.list(req.validated.query));
+  return sendPaginated(
+    res,
+    await productService.list(req.validated.query, req.context.warehouseId),
+  );
 }
 
 export async function stockIn(req, res) {
@@ -32,5 +35,8 @@ export async function adjust(req, res) {
 }
 
 export async function ledger(req, res) {
-  return sendPaginated(res, await inventoryService.listLedger(req.validated.query));
+  return sendPaginated(
+    res,
+    await inventoryService.listLedger(req.validated.query, req.context.warehouseId),
+  );
 }

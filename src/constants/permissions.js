@@ -17,6 +17,12 @@ export const PERMISSIONS = Object.freeze({
   INVENTORY_IN: 'inventory.in',
   INVENTORY_OUT: 'inventory.out',
   INVENTORY_ADJUST: 'inventory.adjust',
+  TRANSFER_REQUEST: 'transfer.request',
+  TRANSFER_APPROVE: 'transfer.approve',
+  TRANSFER_RECEIVE: 'transfer.receive',
+
+  BRANCHES_MANAGE: 'branches.manage',
+  BRANCHES_ALL: 'branches.all',
 
   CUSTOMERS_VIEW: 'customers.view',
   CUSTOMERS_MANAGE: 'customers.manage',
@@ -46,6 +52,11 @@ export const PERMISSION_DEFINITIONS = [
   [PERMISSIONS.INVENTORY_IN, 'inventory', 'Record Stock IN'],
   [PERMISSIONS.INVENTORY_OUT, 'inventory', 'Record Stock OUT'],
   [PERMISSIONS.INVENTORY_ADJUST, 'inventory', 'Record stock adjustments'],
+  [PERMISSIONS.TRANSFER_REQUEST, 'transfers', 'Request stock transfers to other branches'],
+  [PERMISSIONS.TRANSFER_APPROVE, 'transfers', 'Approve, reject and cancel stock transfers'],
+  [PERMISSIONS.TRANSFER_RECEIVE, 'transfers', 'Receive incoming stock transfers'],
+  [PERMISSIONS.BRANCHES_MANAGE, 'branches', 'Create and edit branches'],
+  [PERMISSIONS.BRANCHES_ALL, 'branches', 'Work in every branch (otherwise only assigned branches)'],
   [PERMISSIONS.CUSTOMERS_VIEW, 'customers', 'View customers'],
   [PERMISSIONS.CUSTOMERS_MANAGE, 'customers', 'Create and edit customers'],
   [PERMISSIONS.INVOICE_VIEW, 'invoices', 'View invoices'],
@@ -71,7 +82,7 @@ export const DEFAULT_ROLES = [
   },
   {
     name: 'Warehouse User',
-    description: 'Product search, stock view, Stock IN/OUT and history',
+    description: 'Product search, stock view, Stock IN/OUT, transfers and history',
     isSystem: false,
     permissions: [
       P.DASHBOARD_VIEW,
@@ -79,6 +90,8 @@ export const DEFAULT_ROLES = [
       P.INVENTORY_VIEW,
       P.INVENTORY_IN,
       P.INVENTORY_OUT,
+      P.TRANSFER_REQUEST,
+      P.TRANSFER_RECEIVE,
     ],
   },
   {
@@ -100,3 +113,12 @@ export const DEFAULT_ROLES = [
 ];
 
 export const ADMIN_ROLE_NAME = 'Admin';
+
+/**
+ * Permissions added after the first release, with the default roles that receive them on
+ * existing installations (the seeder only applies defaults when a role is first created).
+ */
+export const PERMISSION_UPGRADES = [
+  { code: P.TRANSFER_REQUEST, roles: ['Warehouse User'] },
+  { code: P.TRANSFER_RECEIVE, roles: ['Warehouse User'] },
+];

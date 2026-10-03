@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { checkDatabaseConnection } from '../config/database.js';
 import { authenticate } from '../middleware/auth.js';
+import { resolveBranch } from '../middleware/branch.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { authRouter } from './authRoutes.js';
+import { branchRouter } from './branchRoutes.js';
 import { customerRouter } from './customerRoutes.js';
 import { invoiceRouter } from './invoiceRoutes.js';
 import { settingsRouter } from './settingsRoutes.js';
@@ -14,6 +16,8 @@ import {
   unitRouter,
 } from './masterRoutes.js';
 import { inventoryRouter, productRouter } from './productRoutes.js';
+import { movementRouter } from './movementRoutes.js';
+import { transferRouter } from './transferRoutes.js';
 import { auditRouter, dashboardRouter, reportRouter } from './reportRoutes.js';
 import { roleRouter, userRouter } from './userRoutes.js';
 
@@ -30,16 +34,21 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use(authenticate);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/roles', roleRouter);
+apiRouter.use('/branches', branchRouter);
 apiRouter.use('/categories', categoryRouter);
 apiRouter.use('/brands', brandRouter);
 apiRouter.use('/units', unitRouter);
 apiRouter.use('/gst-rates', gstRateRouter);
 apiRouter.use('/adjustment-codes', adjustmentCodeRouter);
-apiRouter.use('/products', productRouter);
-apiRouter.use('/inventory', inventoryRouter);
 apiRouter.use('/customers', customerRouter);
-apiRouter.use('/invoices', invoiceRouter);
 apiRouter.use('/settings', settingsRouter);
-apiRouter.use('/dashboard', dashboardRouter);
-apiRouter.use('/reports', reportRouter);
 apiRouter.use('/audit-logs', auditRouter);
+
+// ---- Branch-scoped (stock figures and documents belong to the selected branch) ----
+apiRouter.use('/products', resolveBranch, productRouter);
+apiRouter.use('/inventory', resolveBranch, inventoryRouter);
+apiRouter.use('/stock-movements', resolveBranch, movementRouter);
+apiRouter.use('/transfers', resolveBranch, transferRouter);
+apiRouter.use('/invoices', resolveBranch, invoiceRouter);
+apiRouter.use('/dashboard', resolveBranch, dashboardRouter);
+apiRouter.use('/reports', resolveBranch, reportRouter);

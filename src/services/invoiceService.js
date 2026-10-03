@@ -4,7 +4,6 @@ import { STATE_NAME_BY_CODE } from '../constants/masterData.js';
 import { TXN_TYPE } from '../constants/transactionTypes.js';
 import * as invoiceRepository from '../repositories/invoiceRepository.js';
 import * as settingsRepository from '../repositories/settingsRepository.js';
-import { getDefaultWarehouseId } from '../repositories/warehouseRepository.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   calculateInvoice,
@@ -23,6 +22,13 @@ export const INVOICE_STATUS = Object.freeze({
   CANCELLED: 'CANCELLED',
 });
 const REFERENCE_TYPE = 'INVOICE';
+
+/** Locks an invoice of the current branch; invoices of other branches are "not found". */
+async function lockInBranch(id, context, trx) {
+  const locked = await invoiceRepository.lockById(id, trx);
+  if (!locked || locked.warehouse_id !== context.warehouseId) throw ApiError.notFound('Invoice');
+  return locked;
+}
 
 async function getOrThrow(id, trx) {
   const invoice = await invoiceRepository.findById(id, trx);
@@ -204,8 +210,9 @@ async function finalizeLocked(trx, id, context) {
     trx,
   );
 
-  // Lock stock rows in a consistent (product id) order to avoid deadlocks between invoices.
-  const warehouseId = await getDefaultWarehouseId(trx);
+  // Stock leaves the invoice's branch. Lock stock rows in a consistent (product id) order
+  // to avoid deadlocks between invoices.
+  const { warehouseId } = draft;
   const sorted = [...items].sort((a, b) => a.product_id - b.product_id || a.line_no - b.line_no);
   for (const item of sorted) {
     await applyMovement(
@@ -240,11 +247,12 @@ async function finalizeLocked(trx, id, context) {
   return finalized;
 }
 
-export const list = (filters) => invoiceRepository.list(filters);
+export const list = (filters, warehouseId) => invoiceRepository.list(warehouseId, filters);
 
 /** Invoice with computed print data (HSN summary, amount in words, company details). */
-export async function getById(id) {
+export async function getById(id, warehouseId) {
   const invoice = await getOrThrow(id);
+  if (invoice.warehouseId !== warehouseId) throw ApiError.notFound('Invoice');
   const company = invoice.companySnapshot ?? (await getSettings());
   return {
     ...invoice,
@@ -263,7 +271,7 @@ export async function create({ finalize, ...payload }, context) {
       {
         ...header,
         status: INVOICE_STATUS.DRAFT,
-        warehouse_id: await getDefaultWarehouseId(trx),
+        warehouse_id: context.warehouseId,
         created_by: context.userId,
         updated_by: context.userId,
       },
@@ -285,8 +293,7 @@ export async function create({ finalize, ...payload }, context) {
 
 export async function update(id, payload, context) {
   return db.transaction(async (trx) => {
-    const locked = await invoiceRepository.lockById(id, trx);
-    if (!locked) throw ApiError.notFound('Invoice');
+    const locked = await lockInBranch(id, context, trx);
     if (locked.status !== INVOICE_STATUS.DRAFT) {
       throw ApiError.conflict('Only draft invoices can be edited', 'INVOICE_NOT_EDITABLE');
     }
@@ -313,8 +320,7 @@ export async function update(id, payload, context) {
 
 export async function finalize(id, context) {
   return db.transaction(async (trx) => {
-    const locked = await invoiceRepository.lockById(id, trx);
-    if (!locked) throw ApiError.notFound('Invoice');
+    const locked = await lockInBranch(id, context, trx);
     if (locked.status !== INVOICE_STATUS.DRAFT) {
       throw ApiError.conflict('This invoice is already finalized', 'INVOICE_NOT_DRAFT');
     }
@@ -325,8 +331,7 @@ export async function finalize(id, context) {
 /** Cancels a finalized invoice and returns its stock. The number is kept (never reused). */
 export async function cancel(id, { reason }, context) {
   return db.transaction(async (trx) => {
-    const locked = await invoiceRepository.lockById(id, trx);
-    if (!locked) throw ApiError.notFound('Invoice');
+    const locked = await lockInBranch(id, context, trx);
     if (locked.status === INVOICE_STATUS.CANCELLED) {
       throw ApiError.conflict('This invoice is already cancelled', 'INVOICE_ALREADY_CANCELLED');
     }
@@ -338,7 +343,7 @@ export async function cancel(id, { reason }, context) {
     }
 
     const invoice = await getOrThrow(id, trx);
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = invoice;
     const sorted = [...invoice.items].sort(
       (a, b) => a.productId - b.productId || a.lineNo - b.lineNo,
     );
@@ -391,8 +396,7 @@ export async function cancel(id, { reason }, context) {
 
 export async function removeDraft(id, context) {
   return db.transaction(async (trx) => {
-    const locked = await invoiceRepository.lockById(id, trx);
-    if (!locked) throw ApiError.notFound('Invoice');
+    const locked = await lockInBranch(id, context, trx);
     if (locked.status !== INVOICE_STATUS.DRAFT) {
       throw ApiError.conflict(
         'Only draft invoices can be deleted. Cancel finalized invoices instead.',

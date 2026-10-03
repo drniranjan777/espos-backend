@@ -4,11 +4,17 @@ import { logoFilePath } from '../services/settingsService.js';
 import { sendCreated, sendPaginated, sendSuccess } from '../utils/apiResponse.js';
 
 export async function list(req, res) {
-  return sendPaginated(res, await invoiceService.list(req.validated.query));
+  return sendPaginated(
+    res,
+    await invoiceService.list(req.validated.query, req.context.warehouseId),
+  );
 }
 
 export async function get(req, res) {
-  return sendSuccess(res, await invoiceService.getById(req.validated.params.id));
+  return sendSuccess(
+    res,
+    await invoiceService.getById(req.validated.params.id, req.context.warehouseId),
+  );
 }
 
 export async function create(req, res) {
@@ -45,7 +51,7 @@ export async function remove(req, res) {
 }
 
 export async function pdf(req, res) {
-  const invoice = await invoiceService.getById(req.validated.params.id);
+  const invoice = await invoiceService.getById(req.validated.params.id, req.context.warehouseId);
   const buffer = await renderInvoicePdf(invoice, logoFilePath(invoice.company.logoPath));
   const fileName = `${(invoice.invoiceNo ?? `draft-${invoice.id}`).replaceAll('/', '-')}.pdf`;
   res

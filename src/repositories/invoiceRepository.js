@@ -6,6 +6,7 @@ const HEADER_COLUMNS = [
   'i.invoice_no as invoiceNo',
   'i.invoice_date as invoiceDate',
   'i.status',
+  'i.warehouse_id as warehouseId',
   'i.customer_id as customerId',
   'i.customer_name as customerName',
   'i.customer_company_name as customerCompanyName',
@@ -82,8 +83,8 @@ export const INVOICE_SORT_FIELDS = {
   createdAt: 'i.created_at',
 };
 
-export function list(filters) {
-  const query = db('invoices as i').select(LIST_COLUMNS);
+export function list(warehouseId, filters) {
+  const query = db('invoices as i').select(LIST_COLUMNS).where('i.warehouse_id', warehouseId);
   if (filters.search) {
     const term = `%${filters.search}%`;
     query.where((q) =>
@@ -118,7 +119,10 @@ export async function findById(id, trx = db) {
 /** Locks the invoice row for the rest of the transaction (prevents double finalize/cancel). */
 export async function lockById(id, trx) {
   return (
-    (await trx('invoices').where({ id }).forUpdate().first('id', 'status', 'invoice_no')) ?? null
+    (await trx('invoices')
+      .where({ id })
+      .forUpdate()
+      .first('id', 'status', 'invoice_no', 'warehouse_id')) ?? null
   );
 }
 
@@ -142,15 +146,4 @@ export async function remove(id, trx) {
   await trx('invoices').where({ id }).del();
 }
 
-/** Allocates the next gap-free number for a prefix + financial year under a row lock. */
-export async function nextSequenceNumber(prefix, financialYear, trx) {
-  await trx('invoice_sequences')
-    .insert({ prefix, financial_year: financialYear, last_number: 0 })
-    .onConflict(['prefix', 'financial_year'])
-    .ignore();
-  const [row] = await trx('invoice_sequences')
-    .where({ prefix, financial_year: financialYear })
-    .increment('last_number', 1)
-    .returning('last_number');
-  return row.last_number;
-}
+export { nextSequenceNumber } from './sequenceRepository.js';

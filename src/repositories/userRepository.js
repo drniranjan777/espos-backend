@@ -1,5 +1,6 @@
 import { db } from '../config/database.js';
 import { paginate } from '../utils/pagination.js';
+import { listAccessibleBranches } from './warehouseRepository.js';
 
 const PUBLIC_COLUMNS = [
   'u.id',
@@ -13,6 +14,10 @@ const PUBLIC_COLUMNS = [
   'r.name as roleName',
   'u.created_at as createdAt',
   'u.updated_at as updatedAt',
+  db.raw(`COALESCE((
+    SELECT array_agg(wu.warehouse_id ORDER BY wu.warehouse_id)
+    FROM warehouse_users wu WHERE wu.user_id = u.id
+  ), '{}') as "branchIds"`),
 ];
 
 function baseQuery(trx = db) {
@@ -30,7 +35,9 @@ export async function findAuthUserById(id) {
         WHERE rp.role_id = u.role_id
       ), '{}') as permissions`),
     );
-  return user ?? null;
+  if (!user) return null;
+  user.branches = await listAccessibleBranches(user.id, user.permissions);
+  return user;
 }
 
 /** Looks a user up by username or email (case-insensitive). Includes the password hash. */

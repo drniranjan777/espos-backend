@@ -246,6 +246,25 @@ const PRODUCTS = [
   ],
 ];
 
+// Demo branches: the default branch is renamed to Hyderabad and Vijayawada is added.
+const BRANCHES = {
+  main: { code: 'HYD', name: 'Hyderabad', city: 'Hyderabad', state: 'Telangana', state_code: '36' },
+  second: {
+    code: 'VJA',
+    name: 'Vijayawada',
+    city: 'Vijayawada',
+    state: 'Andhra Pradesh',
+    state_code: '37',
+  },
+};
+// Opening stock at Vijayawada for some SKUs.
+const SECOND_BRANCH_STOCK = {
+  'JCB-HF-001': 12,
+  'JCB-OF-002': 20,
+  'JCB-BT-005': 40,
+  'GEN-HO-011': 100,
+};
+
 // [name, company, mobile, email, gstin, city, state, stateCode, pincode, address]
 const CUSTOMERS = [
   [
@@ -331,6 +350,21 @@ export async function seed(knex) {
       (await trx('gst_rates').select('id', 'rate')).map((r) => [Number(r.rate), r.id]),
     );
     const warehouse = await trx('warehouses').where({ is_default: true }).first('id');
+    await trx('warehouses').where({ id: warehouse.id }).update(BRANCHES.main);
+    const [secondBranch] = await trx('warehouses')
+      .insert({ ...BRANCHES.second, created_by: admin.id })
+      .returning('id');
+
+    // Admin works everywhere (branches.all); warehouse staff in Hyderabad, sales in both.
+    const userIds = await idMap(trx, 'users', 'username');
+    await trx('warehouse_users')
+      .insert([
+        { warehouse_id: warehouse.id, user_id: userIds.warehouse },
+        { warehouse_id: warehouse.id, user_id: userIds.salesman },
+        { warehouse_id: secondBranch.id, user_id: userIds.salesman },
+      ])
+      .onConflict()
+      .ignore();
 
     for (const p of PRODUCTS) {
       const [
@@ -368,23 +402,29 @@ export async function seed(knex) {
         })
         .returning('id');
 
-      await trx('inventory').insert({
-        warehouse_id: warehouse.id,
-        product_id: product.id,
-        quantity: opening,
-      });
-      if (opening > 0) {
-        await trx('inventory_transactions').insert({
-          warehouse_id: warehouse.id,
+      const openingByBranch = [
+        [warehouse.id, opening],
+        [secondBranch.id, SECOND_BRANCH_STOCK[sku] ?? 0],
+      ];
+      for (const [warehouseId, quantity] of openingByBranch) {
+        await trx('inventory').insert({
+          warehouse_id: warehouseId,
           product_id: product.id,
-          type: TXN_TYPE.OPENING,
-          quantity: opening,
-          previous_balance: 0,
-          new_balance: opening,
-          unit_price: purchase,
-          reason: 'Opening stock',
-          created_by: admin.id,
+          quantity,
         });
+        if (quantity > 0) {
+          await trx('inventory_transactions').insert({
+            warehouse_id: warehouseId,
+            product_id: product.id,
+            type: TXN_TYPE.OPENING,
+            quantity,
+            previous_balance: 0,
+            new_balance: quantity,
+            unit_price: purchase,
+            reason: 'Opening stock',
+            created_by: admin.id,
+          });
+        }
       }
     }
 

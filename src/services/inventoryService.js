@@ -4,7 +4,6 @@ import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import { INBOUND_TYPES, TXN_TYPE } from '../constants/transactionTypes.js';
 import { adjustmentCodeRepository } from '../repositories/masters.js';
 import * as inventoryRepository from '../repositories/inventoryRepository.js';
-import { getDefaultWarehouseId } from '../repositories/warehouseRepository.js';
 import { ApiError } from '../utils/ApiError.js';
 import * as auditService from './auditService.js';
 
@@ -16,6 +15,9 @@ const AUDIT_ACTION_BY_TYPE = {
   [TXN_TYPE.ADJUSTMENT_OUT]: AUDIT_ACTION.STOCK_ADJUST,
   [TXN_TYPE.INVOICE_OUT]: AUDIT_ACTION.STOCK_OUT,
   [TXN_TYPE.INVOICE_CANCEL]: AUDIT_ACTION.STOCK_IN,
+  [TXN_TYPE.TRANSFER_OUT]: AUDIT_ACTION.STOCK_OUT,
+  [TXN_TYPE.TRANSFER_IN]: AUDIT_ACTION.STOCK_IN,
+  [TXN_TYPE.TRANSFER_RETURN]: AUDIT_ACTION.STOCK_IN,
 };
 
 async function loadProductForMovement(trx, productId) {
@@ -112,7 +114,7 @@ export async function applyMovement(trx, movement, context) {
   return { transactionId, previousBalance: previous.toNumber(), newBalance: next.toNumber() };
 }
 
-async function assertCustomerExists(trx, customerId) {
+export async function assertCustomerExists(trx, customerId) {
   if (!customerId) return;
   const customer = await trx('customers').where({ id: customerId }).first('id', 'is_active');
   if (!customer) throw ApiError.badRequest('Selected customer does not exist');
@@ -121,7 +123,7 @@ async function assertCustomerExists(trx, customerId) {
 
 export async function stockIn(data, context) {
   return db.transaction(async (trx) => {
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = context;
     const result = await applyMovement(
       trx,
       {
@@ -144,7 +146,7 @@ export async function stockIn(data, context) {
 export async function stockOut(data, context) {
   return db.transaction(async (trx) => {
     await assertCustomerExists(trx, data.customerId);
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = context;
     const result = await applyMovement(
       trx,
       {
@@ -174,7 +176,7 @@ export async function adjust(data, context) {
     const code = await adjustmentCodeRepository.findById(data.adjustmentCodeId, trx);
     if (!code || !code.isActive) throw ApiError.badRequest('Select a valid adjustment reason');
 
-    const warehouseId = await getDefaultWarehouseId(trx);
+    const { warehouseId } = context;
     let direction = data.mode;
     let quantity = new Decimal(data.quantity);
 
@@ -221,7 +223,5 @@ export async function adjust(data, context) {
   });
 }
 
-export async function listLedger(filters) {
-  const warehouseId = await getDefaultWarehouseId();
-  return inventoryRepository.listLedger(warehouseId, filters);
-}
+export const listLedger = (filters, warehouseId) =>
+  inventoryRepository.listLedger(warehouseId, filters);

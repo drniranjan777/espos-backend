@@ -5,6 +5,7 @@ import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import * as refreshTokenRepository from '../repositories/refreshTokenRepository.js';
 import * as roleRepository from '../repositories/roleRepository.js';
 import * as userRepository from '../repositories/userRepository.js';
+import * as warehouseRepository from '../repositories/warehouseRepository.js';
 import { ApiError } from '../utils/ApiError.js';
 import * as auditService from './auditService.js';
 
@@ -22,7 +23,18 @@ async function assertRoleExists(roleId, trx) {
   }
 }
 
-export async function createUser({ password, roleId, ...data }, context) {
+/** Validates and stores branch assignments; new users default to the default branch. */
+async function assignBranches(userId, branchIds, trx) {
+  const ids = [...new Set(branchIds)];
+  if ((await warehouseRepository.countExisting(ids, trx)) !== ids.length) {
+    throw ApiError.validation([
+      { field: 'branchIds', message: 'One or more branches do not exist' },
+    ]);
+  }
+  await warehouseRepository.setUserBranches(userId, ids, trx);
+}
+
+export async function createUser({ password, roleId, branchIds, ...data }, context) {
   return db.transaction(async (trx) => {
     await assertRoleExists(roleId, trx);
     const id = await userRepository.create(
@@ -33,6 +45,11 @@ export async function createUser({ password, roleId, ...data }, context) {
         created_by: context.userId,
         updated_by: context.userId,
       },
+      trx,
+    );
+    await assignBranches(
+      id,
+      branchIds ?? [await warehouseRepository.getDefaultWarehouseId(trx)],
       trx,
     );
     const user = await userRepository.findById(id, trx);
@@ -49,7 +66,7 @@ export async function createUser({ password, roleId, ...data }, context) {
  * Updates a user. Guards against lock-out: you cannot deactivate yourself, and the last
  * active user of the system (Admin) role cannot be deactivated or moved to another role.
  */
-export async function updateUser(id, { password, roleId, isActive, ...data }, context) {
+export async function updateUser(id, { password, roleId, isActive, branchIds, ...data }, context) {
   return db.transaction(async (trx) => {
     const before = await userRepository.findById(id, trx);
     if (!before) throw ApiError.notFound('User');
@@ -76,6 +93,7 @@ export async function updateUser(id, { password, roleId, isActive, ...data }, co
     if (isActive !== undefined) changes.is_active = isActive;
     if (password) changes.password_hash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
     await userRepository.update(id, changes, trx);
+    if (branchIds !== undefined) await assignBranches(id, branchIds, trx);
 
     // Force re-login when access is revoked or the password is reset by an admin.
     if (isActive === false || password) await refreshTokenRepository.revokeAllForUser(id, trx);

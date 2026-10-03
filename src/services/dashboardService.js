@@ -1,6 +1,5 @@
 import { PERMISSIONS } from '../constants/permissions.js';
 import * as dashboardRepository from '../repositories/dashboardRepository.js';
-import { getDefaultWarehouseId } from '../repositories/warehouseRepository.js';
 import { todayIso } from '../utils/date.js';
 
 const TOP_PRODUCTS_DAYS = 30;
@@ -16,18 +15,18 @@ function daysAgoIso(today, days) {
  * Dashboard KPIs for the current user. Sales figures are only included for users
  * who can view invoices; stock value only for users who can see reports.
  */
-export async function getSummary(user) {
-  const warehouseId = await getDefaultWarehouseId();
+export async function getSummary(user, warehouseId) {
   const today = todayIso();
   const canSeeSales = user.permissions.includes(PERMISSIONS.INVOICE_VIEW);
   const canSeeValue = user.permissions.includes(PERMISSIONS.REPORTS_VIEW);
 
-  const [stock, movement, sales, lowStock, topProducts] = await Promise.all([
+  const [stock, movement, sales, lowStock, topProducts, transfers] = await Promise.all([
     dashboardRepository.stockSummary(warehouseId),
     dashboardRepository.movementOn(warehouseId, today),
     canSeeSales ? dashboardRepository.salesOn(warehouseId, today) : null,
     dashboardRepository.lowStockProducts(warehouseId, LIST_LIMIT),
     dashboardRepository.topMovingProducts(warehouseId, daysAgoIso(today, TOP_PRODUCTS_DAYS), 5),
+    dashboardRepository.transferCounts(warehouseId),
   ]);
 
   const { stockValue, ...stockCounts } = stock;
@@ -44,17 +43,18 @@ export async function getSummary(user) {
     },
     lowStock,
     topProducts,
+    // Transfers needing attention in this branch: requests awaiting approval (outgoing)
+    // and stock on its way here (incoming).
+    transfers,
     topProductsDays: TOP_PRODUCTS_DAYS,
   };
 }
 
-export async function getMovement(range) {
-  const warehouseId = await getDefaultWarehouseId();
+export async function getMovement(range, warehouseId) {
   return dashboardRepository.movementSeries(warehouseId, range, todayIso());
 }
 
-export async function stockValuationReport(filters) {
-  const warehouseId = await getDefaultWarehouseId();
+export async function stockValuationReport(filters, warehouseId) {
   const rows = await dashboardRepository.stockValuation(warehouseId, filters);
   const totals = rows.reduce(
     (acc, r) => ({
@@ -72,7 +72,6 @@ export async function stockValuationReport(filters) {
   };
 }
 
-export async function movementReport(filters) {
-  const warehouseId = await getDefaultWarehouseId();
+export async function movementReport(filters, warehouseId) {
   return dashboardRepository.movementReport(warehouseId, filters);
 }
