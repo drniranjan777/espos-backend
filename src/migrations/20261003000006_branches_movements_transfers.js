@@ -177,6 +177,15 @@ export async function up(knex) {
 }
 
 export async function down(knex) {
+  // The ledger is append-only, so transfer entries cannot be removed to fit the old schema.
+  const transferEntry = await knex('inventory_transactions')
+    .whereIn('type', ['TRANSFER_OUT', 'TRANSFER_IN', 'TRANSFER_RETURN'])
+    .first('id');
+  if (transferEntry) {
+    throw new Error(
+      'Cannot roll back: the inventory ledger already contains stock transfer entries. Restore a backup instead.',
+    );
+  }
   await knex('permissions')
     .where((q) => q.whereLike('code', 'transfer.%').orWhereLike('code', 'branches.%'))
     .del();
