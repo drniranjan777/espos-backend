@@ -76,17 +76,36 @@ const MAX_SEARCH_WORDS = 6;
 /** Escapes LIKE wildcards so user input is matched literally. */
 const likeTerm = (word) => `%${word.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
+/** Letters and digits only, upper-case: "320/04133" and "320-04133" both become "32004133". */
+export const normalizeCode = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+// Part numbers and SKUs compared without separators, so spoken or differently typed
+// codes ("320 04133", "32004133", "320-04133") match the stored "320/04133".
+const CODE_COLUMNS = ['p.part_number', 'p.sku'];
+const normalizedColumn = (column) =>
+  `regexp_replace(upper(coalesce(${column}, '')), '[^A-Z0-9]', '', 'g')`;
+
+function splitWords(search) {
+  return search.split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_WORDS);
+}
+
 /**
  * Matches the BRD search fields: name, SKU, part number, brand, machine model and HSN.
  * Every word must appear in at least one field, so "hydraulic 3dx" and a spoken
  * "JCB HF 001" both find their product.
  */
 function applySearch(query, search) {
-  const words = search.split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_WORDS);
-  for (const word of words) {
+  for (const word of splitWords(search)) {
     const term = likeTerm(word);
+    const code = normalizeCode(word);
     query.where((q) => {
       for (const column of SEARCH_COLUMNS) q.orWhereILike(column, term);
+      // Words with digits may be (parts of) codes written with other separators.
+      if (/\d/.test(code) && code.length >= 3) {
+        for (const column of CODE_COLUMNS) {
+          q.orWhereRaw(`${normalizedColumn(column)} LIKE ?`, [`%${code}%`]);
+        }
+      }
     });
   }
 }
@@ -133,12 +152,34 @@ export function quickSearch(warehouseId, search, limit) {
   return query
     .orderByRaw(
       `CASE
-         WHEN upper(p.sku) = upper(?) OR upper(p.part_number) = upper(?) THEN 0
+         WHEN ${normalizedColumn('p.sku')} = ? OR ${normalizedColumn('p.part_number')} = ? THEN 0
          WHEN p.name ILIKE ? OR p.sku ILIKE ? OR p.part_number ILIKE ? THEN 1
          ELSE 2
        END`,
-      [search, search, `${search}%`, `${search}%`, `${search}%`],
+      [normalizeCode(search), normalizeCode(search), `${search}%`, `${search}%`, `${search}%`],
     )
+    .orderBy('p.name')
+    .limit(limit);
+}
+
+// Minimum average similarity for "closest match" results (0-1, pg_trgm word_similarity).
+const FUZZY_THRESHOLD = 0.4;
+
+/**
+ * Closest matches when no product contains every word, e.g. a misheard or misspelt
+ * "hydrolic filtar". Each word is scored against the product's searchable text with
+ * trigram word similarity and the average must reach FUZZY_THRESHOLD.
+ */
+export function fuzzySearch(warehouseId, search, limit) {
+  const words = splitWords(search.toLowerCase());
+  if (!words.length) return Promise.resolve([]);
+  const doc = `lower(concat_ws(' ', p.name, p.sku, p.part_number, p.machine_model, b.name, c.name))`;
+  const score = `((${words.map(() => `word_similarity(?, ${doc})`).join(' + ')}) / ${words.length})`;
+  return baseQuery(warehouseId)
+    .select(SUMMARY_COLUMNS)
+    .where('p.is_active', true)
+    .whereRaw(`${score} >= ?`, [...words, FUZZY_THRESHOLD])
+    .orderByRaw(`${score} DESC`, words)
     .orderBy('p.name')
     .limit(limit);
 }

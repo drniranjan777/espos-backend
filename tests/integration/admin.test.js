@@ -91,7 +91,33 @@ describe('products', () => {
     // Hydraulic Filter (3DX) and Hydraulic Pump Seal Kit (3DX Super).
     expect((await names('hydraulic 3dx')).sort()).toEqual(['JCB-HF-001', 'JCB-SK-006']);
     expect(await names('JCB HF 001')).toEqual(['JCB-HF-001']);
-    expect(await names('filter komatsu')).toEqual([]);
+    // No product is both: only "similar" fallback suggestions, never exact matches.
+    const mixed = await warehouse.get('/products/search?q=filter%20komatsu');
+    expect(mixed.body.data.every((p) => p.matchType === 'similar')).toBe(true);
+  });
+
+  it('matches part numbers regardless of separators (spoken codes)', async () => {
+    const skus = async (q) =>
+      (await warehouse.get(`/products/search?q=${encodeURIComponent(q)}`)).body.data.map(
+        (p) => p.sku,
+      );
+    // Engine Oil Filter has part number 320/04133.
+    expect((await skus('32004133'))[0]).toBe('JCB-OF-002');
+    expect((await skus('320-04133'))[0]).toBe('JCB-OF-002');
+    expect(await skus('320 04133')).toContain('JCB-OF-002');
+  });
+
+  it('falls back to closest matches for misheard words', async () => {
+    const res = await warehouse.get(`/products/search?q=${encodeURIComponent('hydrolic filtar')}`);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.data.every((p) => p.matchType === 'similar')).toBe(true);
+    expect(res.body.data[0].name).toMatch(/hydraulic/i);
+
+    const exact = await warehouse.get('/products/search?q=hydraulic');
+    expect(exact.body.data.every((p) => p.matchType === 'exact')).toBe(true);
+
+    const nothing = await warehouse.get('/products/search?q=zzqx');
+    expect(nothing.body.data).toEqual([]);
   });
 
   it('treats % and _ in searches as plain characters', async () => {

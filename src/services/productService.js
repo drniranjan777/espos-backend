@@ -34,8 +34,19 @@ async function validateReferences(trx, data, before) {
 /** Stock figures in all product reads are for the given branch. */
 export const list = (filters, warehouseId) => productRepository.list(warehouseId, filters);
 
-export const quickSearch = (search, warehouseId) =>
-  productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
+const FUZZY_LIMIT = 10;
+
+/**
+ * Search-as-you-type / voice search. Products containing every word come first
+ * (`matchType: "exact"`); if there are none, the closest matches are returned with
+ * `matchType: "similar"` so a misheard word still finds the part.
+ */
+export async function quickSearch(search, warehouseId) {
+  const exact = await productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
+  if (exact.length) return exact.map((p) => ({ ...p, matchType: 'exact' }));
+  const similar = await productRepository.fuzzySearch(warehouseId, search, FUZZY_LIMIT);
+  return similar.map((p) => ({ ...p, matchType: 'similar' }));
+}
 
 export const getById = (id, warehouseId) => getOrThrow(id, warehouseId);
 
