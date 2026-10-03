@@ -63,18 +63,32 @@ function baseQuery(warehouseId, trx = db) {
     );
 }
 
-/** Matches the BRD search fields: name, SKU, part number, brand, machine model and HSN. */
+const SEARCH_COLUMNS = [
+  'p.name',
+  'p.sku',
+  'p.part_number',
+  'p.machine_model',
+  'p.hsn_code',
+  'b.name',
+];
+const MAX_SEARCH_WORDS = 6;
+
+/** Escapes LIKE wildcards so user input is matched literally. */
+const likeTerm = (word) => `%${word.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+/**
+ * Matches the BRD search fields: name, SKU, part number, brand, machine model and HSN.
+ * Every word must appear in at least one field, so "hydraulic 3dx" and a spoken
+ * "JCB HF 001" both find their product.
+ */
 function applySearch(query, search) {
-  const term = `%${search}%`;
-  query.where((q) =>
-    q
-      .whereILike('p.name', term)
-      .orWhereILike('p.sku', term)
-      .orWhereILike('p.part_number', term)
-      .orWhereILike('p.machine_model', term)
-      .orWhereILike('p.hsn_code', term)
-      .orWhereILike('b.name', term),
-  );
+  const words = search.split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_WORDS);
+  for (const word of words) {
+    const term = likeTerm(word);
+    query.where((q) => {
+      for (const column of SEARCH_COLUMNS) q.orWhereILike(column, term);
+    });
+  }
 }
 
 export const PRODUCT_SORT_FIELDS = {

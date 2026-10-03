@@ -83,6 +83,23 @@ describe('products', () => {
     }
   });
 
+  it('matches every word across fields (typed or spoken searches)', async () => {
+    const names = async (q) =>
+      (await warehouse.get(`/products/search?q=${encodeURIComponent(q)}`)).body.data.map(
+        (p) => p.sku,
+      );
+    // Hydraulic Filter (3DX) and Hydraulic Pump Seal Kit (3DX Super).
+    expect((await names('hydraulic 3dx')).sort()).toEqual(['JCB-HF-001', 'JCB-SK-006']);
+    expect(await names('JCB HF 001')).toEqual(['JCB-HF-001']);
+    expect(await names('filter komatsu')).toEqual([]);
+  });
+
+  it('treats % and _ in searches as plain characters', async () => {
+    const res = await warehouse.get('/products/search?q=%25');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+  });
+
   it('ranks an exact SKU match first', async () => {
     const res = await warehouse.get('/products/search?q=JCB-OF-002');
     expect(res.body.data[0].sku).toBe('JCB-OF-002');
