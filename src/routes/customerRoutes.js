@@ -12,18 +12,21 @@ import {
 
 export const customerRouter = Router();
 
-// Stock OUT lets users pick a customer, so inventory.out also grants read access.
+// Stock IN / OUT let users pick a customer, so those permissions also grant read access.
 const canView = requireAnyPermission(
   P.CUSTOMERS_VIEW,
   P.CUSTOMERS_MANAGE,
+  P.INVENTORY_IN,
   P.INVENTORY_OUT,
   P.INVOICE_CREATE,
 );
+// A new customer can also be added while entering stock; editing and deleting cannot.
+const canCreate = requireAnyPermission(P.CUSTOMERS_MANAGE, P.INVENTORY_IN, P.INVENTORY_OUT);
 const canManage = requirePermission(P.CUSTOMERS_MANAGE);
 
 customerRouter.get('/', canView, validate({ query: listCustomersSchema }), c.list);
 customerRouter.get('/:id', canView, validate({ params: idParam }), c.get);
-customerRouter.post('/', canManage, validate({ body: createCustomerSchema }), c.create);
+customerRouter.post('/', canCreate, validate({ body: createCustomerSchema }), c.create);
 customerRouter.patch(
   '/:id',
   canManage,

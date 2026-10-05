@@ -213,9 +213,14 @@ describe('customers', () => {
     });
   });
 
-  it('warehouse users can pick customers for stock OUT but not create them', async () => {
+  it('warehouse users can pick and add customers but not edit or delete them', async () => {
     expect((await warehouse.get('/customers?search=patil')).status).toBe(200);
-    expect((await warehouse.post('/customers', { name: 'X' })).status).toBe(403);
+    const created = await warehouse.post('/customers', { name: 'Ravi Teja', mobile: '9876500011' });
+    expect(created.status).toBe(201);
+    expect(
+      (await warehouse.patch(`/customers/${created.body.data.id}`, { city: 'X' })).status,
+    ).toBe(403);
+    expect((await warehouse.delete(`/customers/${created.body.data.id}`)).status).toBe(403);
   });
 });
 

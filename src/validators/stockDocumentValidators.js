@@ -25,7 +25,7 @@ export const movementSchema = z
     type: z.enum(['IN', 'OUT']),
     noBill: z.boolean().default(false),
     invoiceNumber: optionalText(60),
-    // OUT: customer from the master (optional); IN/OUT: name as typed (supplier for IN).
+    // Customer from the master (optional); partyName defaults to the customer's name.
     customerId: optionalId,
     partyName: optionalText(150),
     note: optionalText(1000),
@@ -38,13 +38,6 @@ export const movementSchema = z
         code: 'custom',
         path: ['invoiceNumber'],
         message: 'Enter the invoice number, or switch on "No bill"',
-      });
-    }
-    if (data.type === 'IN' && data.customerId) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['customerId'],
-        message: 'Stock IN records a supplier name, not a customer',
       });
     }
   });

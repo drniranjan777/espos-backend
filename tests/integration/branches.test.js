@@ -188,7 +188,7 @@ describe('multi-item stock entries', () => {
     expect(noBill.body.data).toMatchObject({ noBill: true, invoiceNumber: null, partyName: null });
   });
 
-  it('uses the customer master for Stock OUT and a supplier name for Stock IN', async () => {
+  it('links Stock IN and OUT entries to the customer master', async () => {
     const out = await salesman.post('/stock-movements', {
       type: 'OUT',
       invoiceNumber: 'B-1002',
@@ -202,7 +202,11 @@ describe('multi-item stock entries', () => {
       customerId: 2,
       items: [{ productId: 1, quantity: 1 }],
     });
-    expect(inWithCustomer.status).toBe(422);
+    expect(inWithCustomer.status).toBe(201);
+    expect(inWithCustomer.body.data).toMatchObject({
+      customerId: 2,
+      partyName: 'SK Infra Projects',
+    });
   });
 
   it('checks IN / OUT permissions separately', async () => {
