@@ -83,6 +83,39 @@ describe('parseQuestion', () => {
   });
 });
 
+describe('parseQuestion in Telugu', () => {
+  it('reads Telugu stock, price and follow-up questions', () => {
+    expect(ask('పీసీ 200 ట్రాక్ రోలర్ ఎన్ని ఉన్నాయి')).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'pc200 track roller',
+    });
+    expect(ask('హైడ్రాలిక్ ఫిల్టర్ ధర ఎంత')).toMatchObject({
+      intent: INTENT.PRICE,
+      query: 'hydraulic filter',
+    });
+    expect(ask('బకెట్ టూత్ ఎక్కడ ఉంది')).toMatchObject({
+      intent: INTENT.WHERE_STOCK,
+      query: 'bucket tooth',
+    });
+    expect(ask('దీని ధర ఎంత')).toMatchObject({ intent: INTENT.PRICE, followUp: true, query: '' });
+  });
+
+  it('reads Telugu list questions with periods', () => {
+    expect(ask('ఈ వారం ఏమి ఆర్డర్ చేయాలి')).toMatchObject({
+      intent: INTENT.REORDER,
+      periodDays: 7,
+    });
+    expect(ask('రెండు నెలలుగా అమ్ముడుపోలేదు ఏ పార్ట్స్')).toMatchObject({
+      intent: INTENT.NON_MOVING,
+      periodDays: 60,
+    });
+    expect(ask('ఏ పార్ట్స్ అయిపోయాయి').intent).toBe(INTENT.OUT_OF_STOCK);
+    expect(ask('స్టాక్ తక్కువ ఉన్న పార్ట్స్').intent).toBe(INTENT.LOW_STOCK);
+    expect(ask('ఈరోజు సేల్స్').intent).toBe(INTENT.TODAY);
+    expect(ask('నమస్కారం').intent).toBe(INTENT.HELP);
+  });
+});
+
 describe('parsePeriodDays', () => {
   it('converts spoken periods to days', () => {
     expect(parsePeriodDays('60 days')).toBe(60);

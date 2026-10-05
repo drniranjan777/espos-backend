@@ -1,7 +1,7 @@
 import { parseVoiceQuery } from '../../utils/spokenQuery.js';
 
 /**
- * Rule-based understanding of Ask Stock questions (English, Hinglish, Hindi).
+ * Rule-based understanding of Ask Stock questions (English, Hinglish, Hindi, Telugu).
  * Returns the intent plus the part search text, branch and period it mentions.
  */
 export const INTENT = Object.freeze({
@@ -20,54 +20,58 @@ export const INTENT = Object.freeze({
 });
 
 // Checked in order; the first match wins. The matched words are removed before the rest
-// of the question is used as a part search. Devanagari alternatives sit outside \b groups
-// because \b only understands Latin letters.
+// of the question is used as a part search. Devanagari and Telugu alternatives sit outside
+// \b groups because \b only understands Latin letters.
 const INTENT_RULES = [
   {
     intent: INTENT.REORDER,
     pattern:
-      /\b(re-?order\w*|what (should|do) (i|we) (order|buy)|order (karna|karu|karen|kare)|kya order|mang(a|w)a(na|ni|o|u)?|kharid(na|ni|e)?)\b|ऑर्डर|मंगवा|मंगा|खरीदना/,
+      /\b(re-?order\w*|what (should|do) (i|we) (order|buy)|order (karna|karu|karen|kare)|kya order|mang(a|w)a(na|ni|o|u)?|kharid(na|ni|e)?|teppinchali)\b|ऑर्डर|मंगवा|मंगा|खरीदना|ఆర్డర్|తెప్పించ|కొనాలి/,
   },
   {
     intent: INTENT.NON_MOVING,
     pattern:
-      /\b(not (been )?(moved|sold|used)|have ?n['o]?t moved|non[- ]?moving|dead stock|slow[- ]?moving|idle|nahi?n? (bika|bike|biki|nikla|nikle|chala|chale)|(bika|bike|nikla|nikle) nahi?n?)\b|नहीं बिका|बिका नहीं|नहीं निकला/,
+      /\b(not (been )?(moved|sold|used)|have ?n['o]?t moved|non[- ]?moving|dead stock|slow[- ]?moving|idle|nahi?n? (bika|bike|biki|nikla|nikle|chala|chale)|(bika|bike|nikla|nikle) nahi?n?|ammudu poledu|kadalaledu)\b|नहीं बिका|बिका नहीं|नहीं निकला|అమ్ముడుపోలేదు|అమ్ముడు పోలేదు|అమ్ముడు కాలేదు|అమ్మలేదు|కదలలేదు|కదల్లేదు/,
   },
   {
     intent: INTENT.TODAY,
     pattern:
-      /\b(today|todays|today's|aaj|aj)\b.*\b(sale|sales|sold|out|in|summary|becha|bika|bikri|units?)\b|\b(sale|sales|summary)\b.*\b(today|aaj)\b|आज/,
+      /\b(today|todays|today's|aaj|aj)\b.*\b(sale|sales|sold|out|in|summary|becha|bika|bikri|units?)\b|\b(sale|sales|summary)\b.*\b(today|aaj)\b|आज|ఈరోజు|ఈ రోజు|ఇవాళ/,
   },
   {
     intent: INTENT.OUT_OF_STOCK,
-    pattern: /\b(out of stock|khatam|finished|zero stock|no stock|stock nahi?n? hai)\b|ख़त्म|खत्म/,
+    pattern:
+      /\b(out of stock|khatam|finished|zero stock|no stock|stock nahi?n? hai|aipoyindi)\b|ख़त्म|खत्म|అయిపోయింది|అయిపోయాయి|అయిపోయిన|స్టాక్ లేదు|స్టాక్ లేని/,
   },
   {
     intent: INTENT.LOW_STOCK,
     pattern:
-      /\b(low stock|running low|stock kam|kam stock|kam (hai|bacha|bache)|shortage)\b|कम स्टॉक|स्टॉक कम/,
+      /\b(low stock|running low|stock kam|kam stock|kam (hai|bacha|bache)|shortage|takkuva)\b|कम स्टॉक|स्टॉक कम|తక్కువ/,
   },
   {
     intent: INTENT.WHERE_STOCK,
     pattern:
-      /\b(which branch|what branch|where|kahan|kaha|kis branch|kaun si branch|kaunsi branch)\b|कहाँ|कहां|किस ब्रांच/,
+      /\b(which branch|what branch|where|kahan|kaha|kis branch|kaun si branch|kaunsi branch|ekkada)\b|कहाँ|कहां|किस ब्रांच|ఎక్కడ|ఏ బ్రాంచ్/,
   },
   {
     intent: INTENT.PRICE,
-    pattern: /\b(price|prices|rate|rates|cost|mrp|kimat|keemat|daam|bhav)\b|कीमत|दाम|रेट|भाव/,
+    pattern:
+      /\b(price|prices|rate|rates|cost|mrp|kimat|keemat|daam|bhav|dhara)\b|कीमत|दाम|रेट|भाव|ధర|రేటు|రేట్|ఖరీదు|ఎమ్మార్పీ/,
   },
   {
     intent: INTENT.MACHINE_PARTS,
-    pattern: /\b(parts? for|all parts|ke parts|ka parts|ke liye parts|kaun se parts|parts of)\b/,
+    pattern:
+      /\b(parts? for|all parts|ke parts|ka parts|ke liye parts|kaun se parts|parts of)\b|సంబంధించిన పార్ట్|కి పార్ట్స్|కు పార్ట్స్|అన్ని పార్ట్స్/,
   },
   {
     intent: INTENT.CUSTOMER,
     pattern:
-      /\b(customer|bought|buy|buys|purchased|kharida|kharide|liya|le gaya|invoices?|bills?|sold to)\b|ग्राहक|खरीदा|लिया/,
+      /\b(customer|bought|buy|buys|purchased|kharida|kharide|liya|le gaya|invoices?|bills?|sold to|konnaru)\b|ग्राहक|खरीदा|लिया|కస్టమర్|కొన్నారు|కొన్నాడు|కొనుగోలు|బిల్లు/,
   },
   {
     intent: INTENT.HELP,
-    pattern: /^(hi|hello|hey|namaste|help|madad|what can you do|kya kar sakte)\b|^नमस्ते|^मदद/,
+    pattern:
+      /^(hi|hello|hey|namaste|help|madad|what can you do|kya kar sakte)\b|^नमस्ते|^मदद|^నమస్కారం|^నమస్తే|^సహాయం|^హలో/,
   },
 ];
 
@@ -183,11 +187,46 @@ const QUESTION_WORDS = new Set([
   'इसकी',
   'और',
   'भी',
+  'ఎంత',
+  'ఎంతకు',
+  'ఎన్ని',
+  'ఉంది',
+  'ఉందా',
+  'ఉన్నాయి',
+  'ఉన్నాయా',
+  'స్టాక్',
+  'బ్రాంచ్',
+  'లో',
+  'మరి',
+  'కూడా',
+  'చెప్పు',
+  'చెప్పండి',
+  'ఏ',
+  'ఏంటి',
+  'ఈ',
+  'దీని',
+  'దాని',
+  'దీనికి',
+  'దానికి',
+  'అదే',
+  'ఇది',
+  'ఉన్న',
+  'ఉన్నవి',
+  'ఏమి',
+  'ఏవి',
+  'చేయాలి',
+  'పార్ట్స్',
+  'పార్ట్',
+  'enta',
+  'enni',
+  'cheppu',
+  'deeni',
+  'daani',
 ]);
 
 // "Iska price?", "its stock in Vijayawada" refer to the last part discussed.
 const FOLLOW_UP =
-  /\b(it|its|same|iska|iski|iske|isme|uska|uski|wahi|wohi)\b|\bthis (part|one|item)\b|इसका|इसकी|इसके|उसका/;
+  /\b(it|its|same|iska|iski|iske|isme|uska|uski|wahi|wohi|deeni|daani)\b|\bthis (part|one|item)\b|इसका|इसकी|इसके|उसका|దీని|దాని|అదే/;
 
 const NUMBER_WORDS = {
   one: 1,
@@ -212,6 +251,16 @@ const NUMBER_WORDS = {
   पांच: 5,
   पाँच: 5,
   छह: 6,
+  ఒకటి: 1,
+  ఒక: 1,
+  రెండు: 2,
+  మూడు: 3,
+  నాలుగు: 4,
+  ఐదు: 5,
+  ఆరు: 6,
+  పన్నెండు: 12,
+  rendu: 2,
+  moodu: 3,
 };
 const UNIT_DAYS = {
   day: 1,
@@ -236,6 +285,24 @@ const UNIT_DAYS = {
   years: 365,
   saal: 365,
   साल: 365,
+  రోజు: 1,
+  రోజులు: 1,
+  రోజుల: 1,
+  రోజులుగా: 1,
+  వారం: 7,
+  వారాలు: 7,
+  వారాల: 7,
+  వారాలుగా: 7,
+  నెల: 30,
+  నెలలు: 30,
+  నెలల: 30,
+  నెలలుగా: 30,
+  సంవత్సరం: 365,
+  సంవత్సరాలు: 365,
+  rojulu: 1,
+  vaaram: 7,
+  nela: 30,
+  nelalu: 30,
 };
 
 const MAX_PERIOD_DAYS = 730;
@@ -248,9 +315,11 @@ export function parsePeriodDays(text) {
     const unitDays = UNIT_DAYS[words[i + 1]];
     if (n && unitDays) return Math.min(n * unitDays, MAX_PERIOD_DAYS);
   }
-  if (/\b(this month|is mahine)\b|इस महीने/.test(text)) return new Date().getDate();
-  if (/\b(last month|pichhle mahine|pichle mahine)\b|पिछले महीने/.test(text)) return 30;
-  if (/\b(this week|is hafte)\b|इस हफ्ते/.test(text)) return 7;
+  if (/\b(this month|is mahine)\b|इस महीने|ఈ నెల/.test(text)) return new Date().getDate();
+  if (/\b(last month|pichhle mahine|pichle mahine)\b|पिछले महीने|గత నెల|పోయిన నెల/.test(text)) {
+    return 30;
+  }
+  if (/\b(this week|is hafte)\b|इस हफ्ते|ఈ వారం/.test(text)) return 7;
   return null;
 }
 

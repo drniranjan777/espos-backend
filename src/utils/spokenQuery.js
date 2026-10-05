@@ -5,15 +5,17 @@
  * Turns what shop staff say into a product search, e.g.
  *   "JCB 3DX ka hydraulic filter 10 piece chahiye"  →  { query: "jcb 3dx hydraulic filter", quantity: 10 }
  *   "जेसीबी का हाइड्रोलिक फ़िल्टर"                      →  { query: "jcb hydraulic filter" }
+ *   "జెసిబి హైడ్రాలిక్ ఫిల్టర్ పది పీసులు"                →  { query: "jcb hydraulic filter", quantity: 10 }
  *   "part number 320 slash 04133"                    →  { query: "320/04133" }
  *
- * Rule-based and offline: removes Hindi/Hinglish/English filler words, maps common
- * Hindi (Devanagari) part words to the English names used in the catalogue, rebuilds
+ * Rule-based and offline: removes English/Hinglish/Hindi/Telugu filler words, maps common
+ * Hindi (Devanagari) and Telugu part words to the English names used in the catalogue, rebuilds
  * spoken part numbers and picks up a quantity only when a unit word follows the number
  * ("10 piece"), so numbers inside part numbers are never mistaken for quantities.
  */
 
 const DEVANAGARI_DIGITS = '०१२३४५६७८९';
+const TELUGU_DIGITS = '౦౧౨౩౪౫౬౭౮౯';
 
 /** Hindi (Devanagari) words → catalogue English. Several spellings per word. */
 const HINDI_TERMS = {
@@ -78,6 +80,82 @@ const HINDI_TERMS = {
   स्लैश: 'slash',
   डैश: 'dash',
 };
+
+/** Telugu words → catalogue English (part names are usually English words in Telugu script). */
+const TELUGU_TERMS = {
+  జెసిబి: 'jcb',
+  జేసీబీ: 'jcb',
+  జెసీబీ: 'jcb',
+  జేసిబి: 'jcb',
+  'జె సి బి': 'jcb',
+  'జే సి బి': 'jcb',
+  హైడ్రాలిక్: 'hydraulic',
+  హైడ్రాలిక్స్: 'hydraulic',
+  ఫిల్టర్: 'filter',
+  ఫిల్టరు: 'filter',
+  పంప్: 'pump',
+  పంపు: 'pump',
+  ఆయిల్: 'oil',
+  నూనె: 'oil',
+  ఇంజన్: 'engine',
+  ఇంజిన్: 'engine',
+  ఫ్యూయల్: 'fuel',
+  డీజిల్: 'fuel',
+  ఎయిర్: 'air',
+  గాలి: 'air',
+  బకెట్: 'bucket',
+  పిన్: 'pin',
+  సీల్: 'seal',
+  కిట్: 'kit',
+  బేరింగ్: 'bearing',
+  బుష్: 'bush',
+  బోల్ట్: 'bolt',
+  నట్: 'nut',
+  బెల్ట్: 'belt',
+  హోస్: 'hose',
+  పైప్: 'pipe',
+  పైపు: 'pipe',
+  వాల్వ్: 'valve',
+  సిలిండర్: 'cylinder',
+  టూత్: 'tooth',
+  పన్ను: 'tooth',
+  పళ్ళు: 'tooth',
+  రోలర్: 'roller',
+  ట్రాక్: 'track',
+  ఐడ్లర్: 'idler',
+  స్టార్టర్: 'starter',
+  మోటార్: 'motor',
+  మోటర్: 'motor',
+  ఆల్టర్నేటర్: 'alternator',
+  పిస్టన్: 'piston',
+  రింగ్: 'ring',
+  గ్రీస్: 'grease',
+  వాటర్: 'water',
+  నీటి: 'water',
+  నీరు: 'water',
+  బ్రేక్: 'brake',
+  గేర్: 'gear',
+  క్లచ్: 'clutch',
+  ఔటర్: 'outer',
+  క్యాట్: 'cat',
+  కొమాట్సు: 'komatsu',
+  కోమాట్సు: 'komatsu',
+  టాటా: 'tata',
+  హిటాచి: 'hitachi',
+  ఎస్కార్ట్స్: 'escorts',
+  డిఎక్స్: 'dx',
+  'డి ఎక్స్': 'dx',
+  పీసీ: 'pc',
+  పిసి: 'pc',
+  'పి సి': 'pc',
+  స్లాష్: 'slash',
+  డాష్: 'dash',
+};
+
+/** Endings Telugu adds to nouns ("ఫిల్టర్లు" filters, "బకెట్‌కి" for the bucket). */
+const TELUGU_SUFFIXES = ['లు', 'ని', 'ను', 'కి', 'కు', 'లో', 'ది', 'తో', 'కీ'];
+
+const SCRIPT_TERMS = { ...HINDI_TERMS, ...TELUGU_TERMS };
 
 /** Number words (English, Hinglish, Hindi). Only used when a unit word follows. */
 const NUMBER_WORDS = {
@@ -148,6 +226,39 @@ const NUMBER_WORDS = {
   चालीस: 40,
   पचास: 50,
   सौ: 100,
+  // Telugu, and Telugu written in Latin letters
+  ఒకటి: 1,
+  రెండు: 2,
+  మూడు: 3,
+  నాలుగు: 4,
+  ఐదు: 5,
+  అయిదు: 5,
+  ఆరు: 6,
+  ఏడు: 7,
+  ఎనిమిది: 8,
+  తొమ్మిది: 9,
+  పది: 10,
+  పదకొండు: 11,
+  పన్నెండు: 12,
+  పదిహేను: 15,
+  ఇరవై: 20,
+  ముప్పై: 30,
+  నలభై: 40,
+  యాభై: 50,
+  వంద: 100,
+  okati: 1,
+  rendu: 2,
+  moodu: 3,
+  mudu: 3,
+  nalugu: 4,
+  aidu: 5,
+  aaru: 6,
+  edu: 7,
+  enimidi: 8,
+  tommidi: 9,
+  padi: 10,
+  iravai: 20,
+  vanda: 100,
 };
 
 /** Words that mark the preceding number as a quantity. */
@@ -195,6 +306,19 @@ const UNIT_WORDS = new Set([
   'मीटर',
   'सेट',
   'डिब्बा',
+  'పీస్',
+  'పీసు',
+  'పీసులు',
+  'peesulu',
+  'లీటర్',
+  'లీటర్లు',
+  'కిలో',
+  'కిలోలు',
+  'సెట్',
+  'సెట్లు',
+  'మీటర్',
+  'మీటర్లు',
+  'డబ్బా',
 ]);
 
 /** Words that carry no product information. */
@@ -340,6 +464,55 @@ const FILLER_WORDS = new Set([
   'नंबर',
   'मशीन',
   'प्लीज़',
+  // Telugu, and Telugu written in Latin letters
+  'కావాలి',
+  'కావాలండి',
+  'చూపించు',
+  'చూపించండి',
+  'చూపు',
+  'ఇవ్వు',
+  'ఇవ్వండి',
+  'ఉందా',
+  'ఉంది',
+  'ఉన్నాయా',
+  'ఉన్నాయి',
+  'ఎంత',
+  'ఎన్ని',
+  'ఏమిటి',
+  'ఏంటి',
+  'యొక్క',
+  'మరియు',
+  'అండి',
+  'అన్నా',
+  'సార్',
+  'ఆ',
+  'ఈ',
+  'ఒక',
+  'లో',
+  'కి',
+  'కు',
+  'ది',
+  'పార్ట్',
+  'పార్టు',
+  'పార్ట్స్',
+  'నంబర్',
+  'నెంబర్',
+  'మెషిన్',
+  'స్టాక్',
+  'ప్లీజ్',
+  'కోసం',
+  'kavali',
+  'unda',
+  'undha',
+  'undi',
+  'unnaya',
+  'unnayi',
+  'enta',
+  'entha',
+  'enni',
+  'chupinchu',
+  'ivvu',
+  'andi',
 ]);
 
 const SEPARATOR_WORDS = { slash: '/', by: '/', oblique: '/', dash: '-', hyphen: '-', minus: '-' };
@@ -347,25 +520,38 @@ const SEPARATOR_WORDS = { slash: '/', by: '/', oblique: '/', dash: '-', hyphen: 
 const MAX_QUANTITY = 100000;
 
 function toAsciiDigits(text) {
-  return text.replace(/[०-९]/g, (d) => String(DEVANAGARI_DIGITS.indexOf(d)));
+  return text
+    .replace(/[०-९]/g, (d) => String(DEVANAGARI_DIGITS.indexOf(d)))
+    .replace(/[౦-౯]/g, (d) => String(TELUGU_DIGITS.indexOf(d)));
 }
 
-// Multi-word Hindi phrases ("जे सी बी") are replaced in the text; single words are mapped
-// whole-word only, so a short word like "नट" never changes a longer word containing it.
-const HINDI_PHRASES = Object.keys(HINDI_TERMS).filter((term) => term.includes(' '));
+// Multi-word phrases ("जे सी बी", "జె సి బి") are replaced in the text; single words are
+// mapped whole-word only, so a short word like "नट" never changes a longer word containing it.
+const SCRIPT_PHRASES = Object.keys(SCRIPT_TERMS).filter((term) => term.includes(' '));
 
-function translateHindiPhrases(text) {
-  return HINDI_PHRASES.reduce(
-    (result, phrase) => result.split(phrase).join(` ${HINDI_TERMS[phrase]} `),
+function translatePhrases(text) {
+  return SCRIPT_PHRASES.reduce(
+    (result, phrase) => result.split(phrase).join(` ${SCRIPT_TERMS[phrase]} `),
     text,
   );
 }
 
-/** Maps a Hindi word, also when spoken glued to a number ("3डीएक्स" → "3dx"). */
-function translateHindiWord(token) {
-  if (HINDI_TERMS[token]) return HINDI_TERMS[token];
+/** Catalogue word for a Hindi/Telugu word, also with a Telugu ending ("ఫిల్టర్లు"). */
+function lookupTerm(word) {
+  if (SCRIPT_TERMS[word]) return SCRIPT_TERMS[word];
+  const suffix = TELUGU_SUFFIXES.find(
+    (s) => word.endsWith(s) && SCRIPT_TERMS[word.slice(0, -s.length)],
+  );
+  return suffix ? SCRIPT_TERMS[word.slice(0, -suffix.length)] : null;
+}
+
+/** Maps a Hindi/Telugu word, also when spoken glued to a number ("3డిఎక్స్" → "3dx"). */
+function translateWord(token) {
+  const term = lookupTerm(token);
+  if (term) return term;
   const glued = token.match(/^(\d+)(\D+)$/);
-  return glued && HINDI_TERMS[glued[2]] ? glued[1] + HINDI_TERMS[glued[2]] : token;
+  const gluedTerm = glued && lookupTerm(glued[2]);
+  return gluedTerm ? glued[1] + gluedTerm : token;
 }
 
 function numberValue(token) {
@@ -379,14 +565,14 @@ function numberValue(token) {
  */
 export function parseVoiceQuery(transcript) {
   let text = toAsciiDigits(String(transcript ?? '').toLowerCase());
-  text = translateHindiPhrases(text);
+  text = translatePhrases(text);
   // Keep letters and combining marks (any script), digits, "/" "-" "."; the rest becomes a space.
   text = text
     .replace(/[^\p{L}\p{M}\p{N}/.\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  let tokens = text.split(' ').filter(Boolean).map(translateHindiWord);
+  let tokens = text.split(' ').filter(Boolean).map(translateWord);
 
   // 1. Quantity: a number immediately followed by a unit word ("10 piece", "bees pcs").
   let quantity = null;

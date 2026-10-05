@@ -47,6 +47,14 @@ describe('POST /ask-stock', () => {
     expect(data.context).toEqual({ productId: 1, productName: 'Hydraulic Filter' });
   });
 
+  it('answers questions asked in Telugu and Hindi', async () => {
+    expect((await reply(admin, 'హైడ్రాలిక్ ఫిల్టర్ ఎన్ని ఉన్నాయి')).reply).toContain(
+      '42 PCS in Hyderabad',
+    );
+    expect((await reply(admin, 'హైడ్రాలిక్ ఫిల్టర్ ధర ఎంత')).reply).toContain('₹850');
+    expect((await reply(admin, 'हाइड्रोलिक फ़िल्टर कितने हैं')).reply).toContain('42 PCS');
+  });
+
   it('follows up on the part discussed last', async () => {
     const context = { productId: 1 };
     expect((await reply(admin, 'and in Vijayawada?', context)).reply).toContain(
