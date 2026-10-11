@@ -179,3 +179,86 @@ export async function customerActivity(customerId, warehouseId, fromDate) {
   ]);
   return { invoiceCount: invoices.count, invoiceTotal: invoices.total, items };
 }
+
+/** Quantity of one part that left the branch since `fromDate`, and in how many entries. */
+export async function partOutbound(productId, warehouseId, fromDate) {
+  const row = await db('inventory_transactions')
+    .where({ product_id: productId, warehouse_id: warehouseId })
+    .whereIn('type', OUTBOUND)
+    .where('txn_date', '>=', fromDate)
+    .first(db.raw('COALESCE(-SUM(quantity), 0) as quantity'), db.raw('count(*)::int as entries'));
+  return row;
+}
+
+// Stock arriving in a branch: opening stock, stock IN and transfers received or returned.
+const INBOUND = ['OPENING', 'IN', 'TRANSFER_IN', 'TRANSFER_RETURN'];
+
+/** Parts that came in to (`in`) or went out of (`out`) the branch on `date`, largest first. */
+export function movementsOn(warehouseId, date, direction, limit) {
+  return db('inventory_transactions as t')
+    .join('products as p', 'p.id', 't.product_id')
+    .join('units as un', 'un.id', 'p.unit_id')
+    .where({ 't.warehouse_id': warehouseId, 't.txn_date': date })
+    .whereIn('t.type', direction === 'in' ? INBOUND : OUTBOUND)
+    .groupBy('p.id', 'p.name', 'p.sku', 'un.code')
+    .select(
+      'p.id',
+      'p.name',
+      'p.sku',
+      'un.code as unitCode',
+      db.raw('ABS(SUM(t.quantity)) as quantity'),
+      db.raw('count(*)::int as entries'),
+    )
+    .orderBy('quantity', 'desc')
+    .limit(limit);
+}
+
+/** Stock totals of each of the given branches (default branch first). */
+export function branchTotals(warehouseIds) {
+  return db('warehouses as w')
+    .leftJoin('inventory as i', 'i.warehouse_id', 'w.id')
+    .leftJoin('products as p', (j) => j.on('p.id', 'i.product_id').andOnVal('p.is_active', true))
+    .whereIn('w.id', warehouseIds)
+    .where('w.is_active', true)
+    .groupBy('w.id', 'w.name', 'w.is_default')
+    .select(
+      'w.id as branchId',
+      'w.name as branchName',
+      db.raw('count(p.id) FILTER (WHERE i.quantity > 0)::int as "partsInStock"'),
+      db.raw('COALESCE(SUM(i.quantity) FILTER (WHERE p.id IS NOT NULL), 0) as "totalQuantity"'),
+      db.raw(
+        'count(p.id) FILTER (WHERE i.quantity > 0 AND i.quantity <= p.min_stock_level)::int as "lowCount"',
+      ),
+      db.raw('count(p.id) FILTER (WHERE i.quantity <= 0)::int as "outCount"'),
+      db.raw('COALESCE(SUM(i.quantity * p.purchase_price), 0)::numeric(16,2) as "stockValue"'),
+    )
+    .orderBy([
+      { column: 'w.is_default', order: 'desc' },
+      { column: 'w.name', order: 'asc' },
+    ]);
+}
+
+/** Parts and quantity in the branch per category, largest quantity first. */
+export function stockByCategory(warehouseId) {
+  return partsInBranch(warehouseId)
+    .leftJoin('categories as c', 'c.id', 'p.category_id')
+    .groupBy('c.id', 'c.name')
+    .select(
+      'c.id as categoryId',
+      'c.name as categoryName',
+      db.raw('count(*)::int as "partCount"'),
+      db.raw('COALESCE(SUM(i.quantity), 0) as "totalQuantity"'),
+      db.raw('COALESCE(SUM(i.quantity * p.purchase_price), 0)::numeric(16,2) as "stockValue"'),
+    )
+    .orderBy('totalQuantity', 'desc');
+}
+
+/** Language the user last chose for Ask Stock and voice search (null if never chosen). */
+export async function getVoiceLanguage(userId) {
+  const row = await db('users').where({ id: userId }).first('voice_language');
+  return row?.voice_language ?? null;
+}
+
+export function setVoiceLanguage(userId, language) {
+  return db('users').where({ id: userId }).update({ voice_language: language });
+}

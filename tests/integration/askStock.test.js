@@ -11,8 +11,8 @@ let admin;
 let warehouse;
 let salesman;
 
-const ask = (client, message, context, branchId) => {
-  const req = client.post('/ask-stock', { message, context });
+const ask = (client, message, context, branchId, language) => {
+  const req = client.post('/ask-stock', { message, context, language });
   return branchId ? req.set('X-Branch-Id', String(branchId)) : req;
 };
 const reply = async (...args) => {
@@ -172,7 +172,7 @@ describe('POST /ask-stock', () => {
   });
 
   it('summarises today', async () => {
-    const data = await reply(admin, 'sales today');
+    const data = await reply(admin, 'today summary');
     expect(data.reply).toContain('Today in Hyderabad');
     expect(data.reply).toContain('1 invoice');
   });
@@ -180,5 +180,130 @@ describe('POST /ask-stock', () => {
   it('explains what it can do', async () => {
     expect((await reply(admin, 'help')).suggestions.length).toBeGreaterThan(0);
     expect((await reply(admin, 'what is the weather')).reply).toBeTruthy();
+  });
+});
+
+// Runs after the tests above: 36 Hydraulic Filters (6 left) and 3 Bucket Teeth went out of
+// Hyderabad today; Vijayawada is untouched (12 and 40).
+describe('POST /ask-stock — languages and more questions', () => {
+  it('answers in the language asked for', async () => {
+    const hindi = await reply(admin, 'hydraulic filter stock', null, null, 'hi');
+    expect(hindi.language).toBe('hi');
+    expect(hindi.reply).toContain('Hyderabad में 6 PCS स्टॉक में है');
+    expect(hindi.suggestions).toContain('Hydraulic Filter का दाम?');
+
+    const telugu = await reply(admin, 'hydraulic filter stock', null, null, 'te');
+    expect(telugu.reply).toContain('Hyderabadలో 6 PCS');
+    expect((await reply(admin, 'hydraulic filter stock')).language).toBe('en');
+    expect((await ask(admin, 'hydraulic filter', null, null, 'fr')).status).toBe(422);
+  });
+
+  it('localises list answers and their tables', async () => {
+    const data = await reply(admin, 'इस हफ्ते क्या ऑर्डर करना है?', null, null, 'hi');
+    expect(data.reply).toContain('न्यूनतम स्तर');
+    expect(data.cards[0].title).toBe('इस हफ्ते मंगाएं');
+    expect(data.cards[0].columns.map((c) => c.label)).toContain('ऑर्डर');
+    const telugu = await reply(admin, 'ఏ పార్ట్స్ స్టాక్ అయిపోయాయి?', null, null, 'te');
+    expect(telugu.cards[0].title).toBe('స్టాక్ అయిపోయినవి');
+    expect(telugu.cards[0].parts.map((p) => p.name)).toEqual(['Water Pump']);
+  });
+
+  it('understands a branch named in Hindi or Telugu', async () => {
+    const hindi = await reply(
+      admin,
+      'विजयवाड़ा ब्रांच में हाइड्रोलिक फ़िल्टर कितने स्टॉक में हैं?',
+      null,
+      null,
+      'hi',
+    );
+    expect(hindi.reply).toContain('Vijayawada में 12 PCS');
+    const telugu = await reply(
+      admin,
+      'విజయవాడ బ్రాంచ్‌లో హైడ్రాలిక్ ఫిల్టర్ ఎన్ని ఉన్నాయి?',
+      null,
+      null,
+      'te',
+    );
+    expect(telugu.reply).toContain('Vijayawadaలో 12 PCS');
+  });
+
+  it('lists what came in and what went out today', async () => {
+    const out = await reply(admin, "Show today's stock sales");
+    expect(out.reply).toContain('39 units went out of Hyderabad');
+    expect(out.cards[0].rows[0]).toMatchObject({ part: 'Hydraulic Filter', quantity: '36 PCS' });
+    const received = await reply(admin, "Show today's stock received");
+    expect(received.reply).toContain('came in to Hyderabad');
+    expect(received.cards[0].title).toBe('Stock in today');
+  });
+
+  it('answers how many of a part were sold, keeping the part from the last answer', async () => {
+    const first = await reply(admin, 'hydraulic filter stock');
+    const sold = await reply(admin, 'How many were sold this month?', first.context);
+    expect(sold.reply).toContain('36 PCS of Hydraulic Filter went out of Hyderabad');
+    expect(sold.context).toEqual(first.context);
+    const none = await reply(admin, 'track roller sold in last 30 days');
+    expect(none.reply).toContain('No Track Roller went out');
+  });
+
+  it('lists the fastest-moving parts', async () => {
+    const data = await reply(admin, 'fast moving parts this month');
+    expect(data.cards[0].rows.map((r) => r.part).slice(0, 2)).toEqual([
+      'Hydraulic Filter',
+      'Bucket Tooth',
+    ]);
+    // Without a part in mind, a "sold" question shows the same list.
+    expect((await reply(admin, 'what sold this month')).cards[0].title).toContain('Top movers');
+  });
+
+  it('compares the branches the user may see', async () => {
+    const data = await reply(admin, 'Compare stock between Hyderabad and other branches');
+    const rows = data.cards[0].rows;
+    expect(rows.map((r) => r.branch)).toEqual(['Hyderabad', 'Vijayawada']);
+    expect(rows[0]).toMatchObject({ highlight: true, out: '1' });
+    expect(data.cards[0].columns.map((c) => c.key)).toContain('value');
+
+    const forWarehouse = await reply(warehouse, 'compare branches');
+    expect(forWarehouse.cards[0].rows.map((r) => r.branch)).toEqual(['Hyderabad']);
+    const forSales = await reply(salesman, 'compare branches');
+    expect(forSales.cards[0].columns.map((c) => c.key)).not.toContain('value');
+  });
+
+  it('says which branch has the most of a part', async () => {
+    const data = await reply(admin, 'Which branch has the most stock?', { productId: 5 });
+    expect(data.reply).toContain('Hyderabad has the most (117 PCS)');
+    // With no part in mind the branches are compared instead.
+    expect((await reply(admin, 'Which branch has the most stock?')).cards[0].title).toBe(
+      'Branch comparison',
+    );
+  });
+
+  it('totals stock by category and reports transfers', async () => {
+    const categories = await reply(admin, 'stock by category');
+    expect(categories.cards[0].rows.map((r) => r.category)).toContain('Filters');
+    const transfers = await reply(admin, 'pending transfers');
+    expect(transfers.reply).toContain('0 transfers are waiting for approval');
+    expect((await reply(salesman, 'pending transfers')).reply).toContain('don’t have access');
+  });
+});
+
+describe('Ask Stock suggestions and preferences', () => {
+  it('suggests starter questions in the chosen language, by permission', async () => {
+    const hindi = (await admin.get('/ask-stock/suggestions?language=hi')).body.data;
+    expect(hindi).toContain('इस हफ्ते क्या ऑर्डर करना है?');
+    expect(hindi).toContain('सभी ब्रांच के स्टॉक की तुलना करो');
+    const forWarehouse = (await warehouse.get('/ask-stock/suggestions')).body.data;
+    expect(forWarehouse).toContain('What should I reorder this week?');
+    // One branch only: nothing to compare.
+    expect(forWarehouse).not.toContain('Compare stock across branches');
+    expect((await admin.get('/ask-stock/suggestions?language=xx')).status).toBe(422);
+  });
+
+  it("remembers each user's language", async () => {
+    expect((await salesman.get('/ask-stock/preferences')).body.data).toEqual({ language: null });
+    const saved = await salesman.put('/ask-stock/preferences', { language: 'te' });
+    expect(saved.status).toBe(200);
+    expect((await salesman.get('/ask-stock/preferences')).body.data).toEqual({ language: 'te' });
+    expect((await admin.get('/ask-stock/preferences')).body.data).toEqual({ language: null });
+    expect((await salesman.put('/ask-stock/preferences', { language: 'fr' })).status).toBe(422);
   });
 });

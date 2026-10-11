@@ -3,7 +3,7 @@ import { checkDatabaseConnection } from '../config/database.js';
 import { authenticate } from '../middleware/auth.js';
 import { resolveBranch } from '../middleware/branch.js';
 import { sendSuccess } from '../utils/apiResponse.js';
-import { askStockRouter } from './askStockRoutes.js';
+import { askStockRouter, askStockSettingsRouter } from './askStockRoutes.js';
 import { authRouter } from './authRoutes.js';
 import { branchRouter } from './branchRoutes.js';
 import { customerRouter } from './customerRoutes.js';
@@ -44,6 +44,7 @@ apiRouter.use('/adjustment-codes', adjustmentCodeRouter);
 apiRouter.use('/customers', customerRouter);
 apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/audit-logs', auditRouter);
+apiRouter.use('/ask-stock', askStockSettingsRouter);
 
 // ---- Branch-scoped (stock figures and documents belong to the selected branch) ----
 apiRouter.use('/products', resolveBranch, productRouter);

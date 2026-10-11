@@ -57,6 +57,8 @@ const HINDI_TERMS = {
   दांत: 'tooth',
   दाँत: 'tooth',
   रोलर: 'roller',
+  आइडलर: 'idler',
+  आईडलर: 'idler',
   ट्रैक: 'track',
   स्टार्टर: 'starter',
   मोटर: 'motor',

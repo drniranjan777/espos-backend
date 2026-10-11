@@ -4,6 +4,7 @@ import {
   parsePeriodDays,
   parseQuestion,
 } from '../../src/services/askStock/parseQuestion.js';
+import { LANGUAGES, MESSAGES } from '../../src/services/askStock/messages.js';
 
 const BRANCHES = [
   { id: 1, name: 'Hyderabad', code: 'HYD' },
@@ -123,5 +124,128 @@ describe('parsePeriodDays', () => {
     expect(parsePeriodDays('last month')).toBe(30);
     expect(parsePeriodDays('100 years')).toBe(730);
     expect(parsePeriodDays('hydraulic filter')).toBeNull();
+  });
+});
+
+describe('new question types', () => {
+  it('reads sales, fast-moving, comparison, category and transfer questions', () => {
+    expect(ask('How many were sold this month?')).toMatchObject({ intent: INTENT.SOLD, query: '' });
+    expect(ask('hydraulic filter sold in last 60 days')).toMatchObject({
+      intent: INTENT.SOLD,
+      query: 'hydraulic filter',
+      periodDays: 60,
+    });
+    expect(ask('fast moving parts').intent).toBe(INTENT.FAST_MOVING);
+    expect(ask('Compare stock between Hyderabad and other branches.').intent).toBe(
+      INTENT.BRANCH_COMPARE,
+    );
+    expect(ask('Which branch has the most stock?')).toMatchObject({
+      intent: INTENT.WHERE_STOCK,
+      query: '',
+    });
+    expect(ask('stock by category').intent).toBe(INTENT.CATEGORY);
+    expect(ask('pending transfers').intent).toBe(INTENT.TRANSFERS);
+  });
+
+  it('tells stock received from stock sold today', () => {
+    expect(ask("Show today's stock received.")).toMatchObject({
+      intent: INTENT.TODAY,
+      direction: 'in',
+    });
+    expect(ask("Show today's stock sales.")).toMatchObject({
+      intent: INTENT.TODAY,
+      direction: 'out',
+    });
+    expect(ask('today summary')).toMatchObject({ intent: INTENT.TODAY, direction: null });
+    expect(ask('आज कितने पार्ट्स आए हैं?')).toMatchObject({
+      intent: INTENT.TODAY,
+      direction: 'in',
+    });
+    expect(ask('आज कितने पार्ट्स बिके?')).toMatchObject({ intent: INTENT.TODAY, direction: 'out' });
+    expect(ask('ఈరోజు ఎన్ని పార్ట్స్ వచ్చాయి?')).toMatchObject({
+      intent: INTENT.TODAY,
+      direction: 'in',
+    });
+    expect(ask('ఈరోజు ఎన్ని పార్ట్స్ అమ్ముడయ్యాయి?')).toMatchObject({
+      intent: INTENT.TODAY,
+      direction: 'out',
+    });
+  });
+
+  it('reads the same questions in Hindi and Telugu', () => {
+    expect(ask('कौन-कौन से आइटम दोबारा मंगाने हैं?').intent).toBe(INTENT.REORDER);
+    expect(ask('ఏ వస్తువులను మళ్లీ ఆర్డర్ చేయాలి?').intent).toBe(INTENT.REORDER);
+    expect(ask('पिछले 60 दिनों से कौन से आइटम नहीं बिके हैं?')).toMatchObject({
+      intent: INTENT.NON_MOVING,
+      periodDays: 60,
+    });
+    expect(ask('గత 60 రోజులుగా కదలని స్టాక్ ఏది?')).toMatchObject({
+      intent: INTENT.NON_MOVING,
+      periodDays: 60,
+    });
+    expect(ask('हैदराबाद और दूसरी ब्रांच के स्टॉक की तुलना करो।').intent).toBe(
+      INTENT.BRANCH_COMPARE,
+    );
+    expect(ask('హైదరాబాద్ మరియు ఇతర బ్రాంచ్‌ల స్టాక్‌ను పోల్చండి.').intent).toBe(
+      INTENT.BRANCH_COMPARE,
+    );
+    expect(ask('PC200 idler ka stock kitna hai?')).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'pc200 idler',
+    });
+  });
+
+  it('recognises branch names said in Hindi and Telugu', () => {
+    expect(ask('हैदराबाद ब्रांच में PC200 आइडलर कितने स्टॉक में हैं?')).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'pc200 idler',
+      branchId: 1,
+    });
+    expect(ask('హైదరాబాద్ బ్రాంచ్‌లో PC200 ఐడ్లర్లు ఎన్ని స్టాక్‌లో ఉన్నాయి?')).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'pc200 idler',
+      branchId: 1,
+    });
+    expect(ask('విజయవాడలో ఎంత ఉంది')).toMatchObject({ branchId: 2, followUp: true, query: '' });
+    expect(ask('विजयवाड़ा में कितना है')).toMatchObject({ branchId: 2, followUp: true, query: '' });
+  });
+});
+
+describe('answer catalogue', () => {
+  it('has every message in every language', () => {
+    const keys = Object.keys(MESSAGES.en).sort();
+    for (const language of LANGUAGES) {
+      expect(Object.keys(MESSAGES[language]).sort()).toEqual(keys);
+    }
+  });
+
+  // Suggested questions are tapped and sent back, so each must be understood.
+  it.each(LANGUAGES)('suggests questions it understands itself (%s)', (language) => {
+    const m = MESSAGES[language];
+    const name = 'Hydraulic Filter';
+    expect(ask(m.sReorder()).intent).toBe(INTENT.REORDER);
+    expect(ask(m.sNonMoving())).toMatchObject({ intent: INTENT.NON_MOVING, periodDays: 60 });
+    expect(ask(m.sOut()).intent).toBe(INTENT.OUT_OF_STOCK);
+    expect(ask(m.sLow()).intent).toBe(INTENT.LOW_STOCK);
+    expect(ask(m.sToday()).intent).toBe(INTENT.TODAY);
+    expect(ask(m.sCompare()).intent).toBe(INTENT.BRANCH_COMPARE);
+    expect(ask(m.sTop()).intent).toBe(INTENT.FAST_MOVING);
+    expect(ask(m.sSold())).toMatchObject({ intent: INTENT.SOLD, query: '' });
+    expect(ask(m.sExample())).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'hydraulic filter',
+    });
+    expect(ask(m.sPrice({ name }))).toMatchObject({
+      intent: INTENT.PRICE,
+      query: 'hydraulic filter',
+    });
+    expect(ask(m.sWhere({ name }))).toMatchObject({
+      intent: INTENT.WHERE_STOCK,
+      query: 'hydraulic filter',
+    });
+    expect(ask(m.sStock({ name }))).toMatchObject({
+      intent: INTENT.STOCK_CHECK,
+      query: 'hydraulic filter',
+    });
   });
 });
