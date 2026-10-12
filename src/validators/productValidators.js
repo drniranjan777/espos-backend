@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PRODUCT_SORT_FIELDS } from '../repositories/productRepository.js';
+import { MAX_IMPORT_ROWS } from '../services/productImportService.js';
 import { listQuerySchema } from '../utils/pagination.js';
 import { booleanQuery, money, optionalId, optionalText, requiredText } from './common.js';
 
@@ -59,6 +60,39 @@ export const updateProductSchema = z
   })
   .partial()
   .refine(pricesAreConsistent, priceRule);
+
+// Excel import: cells arrive as typed in the sheet (text, number or empty); the import
+// service checks each one and reports problems by row instead of rejecting the request.
+const cell = z.union([z.string().max(2100), z.number(), z.null()]).optional();
+
+export const importProductsSchema = z.object({
+  // Check-only unless explicitly told to save.
+  dryRun: z.boolean().default(true),
+  rows: z
+    .array(
+      z.object({
+        rowNumber: z.number().int().positive(),
+        name: cell,
+        sku: cell,
+        partNumber: cell,
+        category: cell,
+        brand: cell,
+        machineModel: cell,
+        unit: cell,
+        hsnCode: cell,
+        purchasePrice: cell,
+        sellingPrice: cell,
+        mrp: cell,
+        gstRate: cell,
+        minStockLevel: cell,
+        openingStock: cell,
+        branch: cell,
+        description: cell,
+      }),
+    )
+    .min(1, 'The file has no parts')
+    .max(MAX_IMPORT_ROWS, `A file can hold up to ${MAX_IMPORT_ROWS} rows`),
+});
 
 export const listProductsSchema = listQuerySchema(PRODUCT_SORT_FIELDS, 'name', {
   categoryId: z.coerce.number().int().positive().optional(),

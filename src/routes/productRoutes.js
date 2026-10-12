@@ -13,6 +13,7 @@ import {
 } from '../validators/inventoryValidators.js';
 import {
   createProductSchema,
+  importProductsSchema,
   listProductsSchema,
   quickSearchSchema,
   updateProductSchema,
@@ -43,6 +44,13 @@ productRouter.post(
   requirePermission(P.PRODUCTS_CREATE),
   validate({ body: createProductSchema }),
   products.create,
+);
+// Parts with opening stock from the Excel template; `dryRun` checks without saving.
+productRouter.post(
+  '/import',
+  requirePermission(P.PRODUCTS_CREATE),
+  validate({ body: importProductsSchema }),
+  products.importFromExcel,
 );
 productRouter.patch(
   '/:id',

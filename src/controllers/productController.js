@@ -1,3 +1,4 @@
+import { importProducts } from '../services/productImportService.js';
 import * as productService from '../services/productService.js';
 import { sendCreated, sendPaginated, sendSuccess } from '../utils/apiResponse.js';
 
@@ -42,4 +43,12 @@ export async function update(req, res) {
 export async function remove(req, res) {
   await productService.remove(req.validated.params.id, req.context);
   return sendSuccess(res, null, { message: 'Product deleted' });
+}
+
+export async function importFromExcel(req, res) {
+  const { rows, dryRun } = req.validated.body;
+  return sendSuccess(
+    res,
+    await importProducts(rows, { dryRun }, req.context, req.user, req.branch),
+  );
 }
