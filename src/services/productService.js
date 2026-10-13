@@ -41,11 +41,22 @@ const FUZZY_LIMIT = 10;
  * (`matchType: "exact"`); if there are none, the closest matches are returned with
  * `matchType: "similar"` so a misheard word still finds the part.
  */
-export async function quickSearch(search, warehouseId) {
-  const exact = await productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
-  if (exact.length) return exact.map((p) => ({ ...p, matchType: 'exact' }));
-  const similar = await productRepository.fuzzySearch(warehouseId, search, FUZZY_LIMIT);
-  return similar.map((p) => ({ ...p, matchType: 'similar' }));
+export async function quickSearch(search, warehouseId, { withPurchasePrice = false } = {}) {
+  let matchType = 'exact';
+  let products = await productRepository.quickSearch(warehouseId, search, QUICK_SEARCH_LIMIT);
+  if (!products.length) {
+    matchType = 'similar';
+    products = await productRepository.fuzzySearch(warehouseId, search, FUZZY_LIMIT);
+  }
+  // Stock IN shows the current purchase price to users who may change it.
+  const prices = withPurchasePrice
+    ? await productRepository.purchasePrices(products.map((p) => p.id))
+    : null;
+  return products.map((p) => ({
+    ...p,
+    ...(prices ? { purchasePrice: prices.get(p.id) } : {}),
+    matchType,
+  }));
 }
 
 export const getById = (id, warehouseId) => getOrThrow(id, warehouseId);

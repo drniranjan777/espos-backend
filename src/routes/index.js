@@ -18,6 +18,7 @@ import {
 } from './masterRoutes.js';
 import { inventoryRouter, productRouter } from './productRoutes.js';
 import { movementRouter } from './movementRoutes.js';
+import { purchaseInvoiceRouter } from './purchaseInvoiceRoutes.js';
 import { transferRouter } from './transferRoutes.js';
 import { dashboardRouter, reportRouter } from './reportRoutes.js';
 import { roleRouter, userRouter } from './userRoutes.js';
@@ -51,6 +52,7 @@ apiRouter.use('/inventory', resolveBranch, inventoryRouter);
 apiRouter.use('/stock-movements', resolveBranch, movementRouter);
 apiRouter.use('/transfers', resolveBranch, transferRouter);
 apiRouter.use('/invoices', resolveBranch, invoiceRouter);
+apiRouter.use('/purchase-invoices', resolveBranch, purchaseInvoiceRouter);
 apiRouter.use('/dashboard', resolveBranch, dashboardRouter);
 apiRouter.use('/reports', resolveBranch, reportRouter);
 apiRouter.use('/ask-stock', resolveBranch, askStockRouter);

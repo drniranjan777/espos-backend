@@ -37,7 +37,14 @@ movementRouter.post(
   async (req, res) => {
     const needed = req.validated.body.type === 'IN' ? P.INVENTORY_IN : P.INVENTORY_OUT;
     if (!req.user.permissions.includes(needed)) throw ApiError.forbidden();
-    const movement = await movementService.create(req.validated.body, req.context);
+    const pricesEntered = req.validated.body.items.some((item) => item.purchasePrice !== undefined);
+    if (pricesEntered && !req.user.permissions.includes(P.PURCHASE_PRICE)) {
+      throw ApiError.forbidden('You do not have permission to change purchase prices');
+    }
+    const { movement, duplicate } = await movementService.create(req.validated.body, req.context);
+    if (duplicate) {
+      return sendSuccess(res, movement, { message: `${movement.movementNo} was already saved` });
+    }
     return sendCreated(res, movement, `${movement.movementNo} saved`);
   },
 );

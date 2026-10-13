@@ -30,6 +30,7 @@ export const AUDIT_MODULE = Object.freeze({
   INVENTORY: 'inventory',
   CUSTOMERS: 'customers',
   INVOICES: 'invoices',
+  PURCHASE_INVOICES: 'purchase_invoices',
   SETTINGS: 'settings',
   BRANCHES: 'branches',
   STOCK_MOVEMENTS: 'stock_movements',

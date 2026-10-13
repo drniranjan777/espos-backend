@@ -8,6 +8,7 @@ import { todayIso } from '../utils/date.js';
 import { financialYear } from '../utils/gstCalculator.js';
 import * as auditService from './auditService.js';
 import { applyMovement } from './inventoryService.js';
+import { postForStockIn, pricePurchaseLines } from './purchaseInvoiceService.js';
 import {
   assertStockAvailable,
   lockOrder,
@@ -21,7 +22,7 @@ const REFERENCE_TYPE = 'MOVEMENT';
 async function loadCustomer(trx, customerId) {
   const customer = await trx('customers')
     .where({ id: customerId })
-    .first('id', 'name', 'company_name', 'is_active');
+    .first('id', 'name', 'company_name', 'gstin', 'state_code', 'is_active');
   if (!customer) throw ApiError.badRequest('Selected customer does not exist');
   if (!customer.is_active) throw ApiError.badRequest('Selected customer is inactive');
   return customer;
@@ -36,17 +37,52 @@ async function getOrThrow(id, warehouseId, trx) {
 export const list = (filters, warehouseId) => movementRepository.list(warehouseId, filters);
 export const getById = (id, warehouseId) => getOrThrow(id, warehouseId);
 
+/** The entry already saved for a client request id, if this user submitted it before. */
+async function findSubmitted(clientRequestId, context) {
+  if (!clientRequestId) return null;
+  const id = await movementRepository.findIdByClientRequest(clientRequestId);
+  if (!id) return null;
+  const movement = await movementRepository.findById(id);
+  if (movement.createdById !== context.userId || movement.warehouseId !== context.warehouseId) {
+    throw ApiError.conflict('This request id was already used for another entry');
+  }
+  return movement;
+}
+
 /**
  * Records a multi-item Stock IN or Stock OUT in the current branch as one numbered
- * document (e.g. SO/2026-27/0001). All lines succeed or none do.
+ * document (e.g. SO/2026-27/0001). All lines succeed or none do. A Stock IN also gets
+ * its billing invoice and applies the purchase prices entered on its lines.
+ *
+ * Submitting the same `clientRequestId` again (double click, retry after a timeout)
+ * returns the entry saved the first time instead of booking it twice.
+ *
+ * @returns {Promise<{ movement: object, duplicate: boolean }>}
  */
 export async function create(data, context) {
+  const submitted = await findSubmitted(data.clientRequestId, context);
+  if (submitted) return { movement: submitted, duplicate: true };
+  try {
+    return { movement: await createMovement(data, context), duplicate: false };
+  } catch (error) {
+    // Two identical requests raced: the unique request id let only one through.
+    if (error.code === '23505' && error.constraint?.includes('client_request_id')) {
+      const winner = await findSubmitted(data.clientRequestId, context);
+      if (winner) return { movement: winner, duplicate: true };
+    }
+    throw error;
+  }
+}
+
+async function createMovement(data, context) {
   const { warehouseId } = context;
-  const lines = mergeLines(data.items);
+  const isIn = data.type === 'IN';
+  let lines = mergeLines(data.items);
   const date = data.date ?? todayIso();
 
   return db.transaction(async (trx) => {
     let { partyName = null, customerId = null } = data;
+    let customer = null;
     let invoiceNumber = data.invoiceNumber ?? null;
     if (data.noBill) {
       invoiceNumber = null;
@@ -54,11 +90,12 @@ export async function create(data, context) {
       customerId = null;
     }
     if (customerId) {
-      const customer = await loadCustomer(trx, customerId);
+      customer = await loadCustomer(trx, customerId);
       partyName ??= customer.company_name || customer.name;
     }
 
-    if (data.type === 'OUT') await assertStockAvailable(trx, warehouseId, lines);
+    if (isIn) lines = await pricePurchaseLines(trx, lines);
+    else await assertStockAvailable(trx, warehouseId, lines);
 
     const prefix = MOVEMENT_PREFIX[data.type];
     const fy = financialYear(date);
@@ -77,6 +114,7 @@ export async function create(data, context) {
         movement_date: date,
         line_count: lines.length,
         total_quantity: totalQuantity(lines),
+        client_request_id: data.clientRequestId ?? null,
         created_by: context.userId,
       },
       trx,
@@ -89,8 +127,9 @@ export async function create(data, context) {
         {
           productId: line.productId,
           warehouseId,
-          type: data.type === 'IN' ? TXN_TYPE.IN : TXN_TYPE.OUT,
+          type: isIn ? TXN_TYPE.IN : TXN_TYPE.OUT,
           quantity: line.quantity,
+          unitPrice: isIn ? line.price : undefined,
           customerId,
           partyName,
           referenceType: REFERENCE_TYPE,
@@ -110,10 +149,31 @@ export async function create(data, context) {
         line_no: index + 1,
         product_id: line.productId,
         quantity: line.quantity,
+        previous_purchase_price: isIn ? line.previousPrice : null,
+        purchase_price: isIn ? line.price : null,
         transaction_id: transactionIds.get(line.productId),
       })),
       trx,
     );
+
+    if (isIn) {
+      await postForStockIn(
+        trx,
+        {
+          id,
+          movementNo,
+          warehouseId,
+          date,
+          noBill: data.noBill,
+          invoiceNumber,
+          note: data.note ?? null,
+        },
+        customer,
+        partyName,
+        lines,
+        context,
+      );
+    }
 
     const movement = await getOrThrow(id, warehouseId, trx);
     await auditService.log(

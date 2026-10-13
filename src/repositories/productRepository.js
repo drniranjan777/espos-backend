@@ -184,6 +184,13 @@ export function fuzzySearch(warehouseId, search, limit) {
     .limit(limit);
 }
 
+/** Current purchase price by product id. */
+export async function purchasePrices(ids) {
+  if (!ids.length) return new Map();
+  const rows = await db('products').whereIn('id', ids).select('id', 'purchase_price');
+  return new Map(rows.map((r) => [r.id, r.purchase_price]));
+}
+
 export async function findById(id, warehouseId, trx = db) {
   return (await baseQuery(warehouseId, trx).where('p.id', id).first(DETAIL_COLUMNS)) ?? null;
 }

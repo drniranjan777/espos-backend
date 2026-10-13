@@ -16,18 +16,30 @@ const HEADER_COLUMNS = [
   'm.line_count as lineCount',
   'm.total_quantity as totalQuantity',
   'm.created_at as createdAt',
+  'm.created_by as createdById',
   'u.name as createdByName',
+  'pi.id as purchaseInvoiceId',
+  'pi.invoice_no as purchaseInvoiceNo',
 ];
 
 function baseQuery(trx = db) {
   return trx('stock_movements as m')
     .join('warehouses as w', 'w.id', 'm.warehouse_id')
-    .leftJoin('users as u', 'u.id', 'm.created_by');
+    .leftJoin('users as u', 'u.id', 'm.created_by')
+    .leftJoin('purchase_invoices as pi', 'pi.movement_id', 'm.id');
 }
 
 export async function insertHeader(data, trx) {
   const [row] = await trx('stock_movements').insert(data).returning('id');
   return row.id;
+}
+
+/** Id of the entry saved for a client request id, or null. */
+export async function findIdByClientRequest(clientRequestId, trx = db) {
+  const row = await trx('stock_movements')
+    .where({ client_request_id: clientRequestId })
+    .first('id');
+  return row?.id ?? null;
 }
 
 export async function insertItems(rows, trx) {
@@ -51,6 +63,8 @@ export async function findById(id, trx = db) {
       'p.part_number as partNumber',
       'un.code as unitCode',
       'mi.quantity',
+      'mi.previous_purchase_price as previousPurchasePrice',
+      'mi.purchase_price as purchasePrice',
       't.previous_balance as previousBalance',
       't.new_balance as newBalance',
     );

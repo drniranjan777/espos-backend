@@ -32,6 +32,10 @@ export const PERMISSIONS = Object.freeze({
   INVOICE_UPDATE: 'invoice.update',
   INVOICE_CANCEL: 'invoice.cancel',
 
+  PURCHASE_PRICE: 'purchase.price',
+  PURCHASE_VIEW: 'purchase.view',
+  PURCHASE_PAY: 'purchase.pay',
+
   REPORTS_VIEW: 'reports.view',
   USERS_MANAGE: 'users.manage',
   ROLES_MANAGE: 'roles.manage',
@@ -62,6 +66,9 @@ export const PERMISSION_DEFINITIONS = [
   [PERMISSIONS.INVOICE_CREATE, 'invoices', 'Create and finalize invoices'],
   [PERMISSIONS.INVOICE_UPDATE, 'invoices', 'Edit draft invoices'],
   [PERMISSIONS.INVOICE_CANCEL, 'invoices', 'Cancel invoices'],
+  [PERMISSIONS.PURCHASE_PRICE, 'purchases', 'Change purchase prices on Stock IN'],
+  [PERMISSIONS.PURCHASE_VIEW, 'purchases', 'View billing (purchase) invoices'],
+  [PERMISSIONS.PURCHASE_PAY, 'purchases', 'Record payments on billing invoices'],
   [PERMISSIONS.REPORTS_VIEW, 'reports', 'View reports'],
   [PERMISSIONS.USERS_MANAGE, 'administration', 'Manage users'],
   [PERMISSIONS.ROLES_MANAGE, 'administration', 'Manage roles and permissions'],

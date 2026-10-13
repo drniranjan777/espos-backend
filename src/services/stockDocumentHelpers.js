@@ -4,18 +4,25 @@ import { ApiError } from '../utils/ApiError.js';
 
 /**
  * Combines lines for the same product (keeping first-seen order) so a document never
- * books one product twice.
+ * books one product twice. A purchase price, when given, must agree across its lines.
  */
 export function mergeLines(items) {
   const byProduct = new Map();
-  for (const item of items) {
-    const existing = byProduct.get(item.productId);
-    byProduct.set(
-      item.productId,
-      existing
-        ? { ...existing, quantity: new Decimal(existing.quantity).plus(item.quantity).toNumber() }
-        : { productId: item.productId, quantity: item.quantity },
-    );
+  for (const { productId, quantity, purchasePrice } of items) {
+    const existing = byProduct.get(productId);
+    if (!existing) {
+      byProduct.set(productId, { productId, quantity, purchasePrice });
+      continue;
+    }
+    const price = existing.purchasePrice ?? purchasePrice;
+    if (price !== undefined && (purchasePrice ?? price) !== price) {
+      throw ApiError.badRequest('The same part is listed twice with different purchase prices');
+    }
+    byProduct.set(productId, {
+      productId,
+      quantity: new Decimal(existing.quantity).plus(quantity).toNumber(),
+      purchasePrice: price,
+    });
   }
   return [...byProduct.values()];
 }

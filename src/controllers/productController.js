@@ -1,3 +1,4 @@
+import { PERMISSIONS as P } from '../constants/permissions.js';
 import { importProducts } from '../services/productImportService.js';
 import * as productService from '../services/productService.js';
 import { sendCreated, sendPaginated, sendSuccess } from '../utils/apiResponse.js';
@@ -12,7 +13,9 @@ export async function list(req, res) {
 export async function search(req, res) {
   return sendSuccess(
     res,
-    await productService.quickSearch(req.validated.query.q, req.context.warehouseId),
+    await productService.quickSearch(req.validated.query.q, req.context.warehouseId, {
+      withPurchasePrice: req.user.permissions.includes(P.PURCHASE_PRICE),
+    }),
   );
 }
 
