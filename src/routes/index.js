@@ -19,7 +19,7 @@ import {
 import { inventoryRouter, productRouter } from './productRoutes.js';
 import { movementRouter } from './movementRoutes.js';
 import { transferRouter } from './transferRoutes.js';
-import { auditRouter, dashboardRouter, reportRouter } from './reportRoutes.js';
+import { dashboardRouter, reportRouter } from './reportRoutes.js';
 import { roleRouter, userRouter } from './userRoutes.js';
 
 export const apiRouter = Router();
@@ -43,7 +43,6 @@ apiRouter.use('/gst-rates', gstRateRouter);
 apiRouter.use('/adjustment-codes', adjustmentCodeRouter);
 apiRouter.use('/customers', customerRouter);
 apiRouter.use('/settings', settingsRouter);
-apiRouter.use('/audit-logs', auditRouter);
 apiRouter.use('/ask-stock', askStockSettingsRouter);
 
 // ---- Branch-scoped (stock figures and documents belong to the selected branch) ----

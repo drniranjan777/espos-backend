@@ -43,7 +43,3 @@ export async function log(
     trx,
   );
 }
-
-export function list(filters) {
-  return auditRepository.list(filters);
-}

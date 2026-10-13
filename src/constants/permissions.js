@@ -36,7 +36,6 @@ export const PERMISSIONS = Object.freeze({
   USERS_MANAGE: 'users.manage',
   ROLES_MANAGE: 'roles.manage',
   SETTINGS_MANAGE: 'settings.manage',
-  AUDIT_VIEW: 'audit.view',
 });
 
 /** Descriptions shown in the role-permission editor. */
@@ -67,7 +66,6 @@ export const PERMISSION_DEFINITIONS = [
   [PERMISSIONS.USERS_MANAGE, 'administration', 'Manage users'],
   [PERMISSIONS.ROLES_MANAGE, 'administration', 'Manage roles and permissions'],
   [PERMISSIONS.SETTINGS_MANAGE, 'administration', 'Manage company and invoice settings'],
-  [PERMISSIONS.AUDIT_VIEW, 'administration', 'View audit logs'],
 ];
 
 const P = PERMISSIONS;

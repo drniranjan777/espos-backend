@@ -94,7 +94,6 @@ Layering: **route → controller → service → repository**. Controllers never
 | Invoices            | `/invoices`, `POST /invoices/:id/finalize`, `POST /invoices/:id/cancel`, `GET /invoices/:id/pdf`                                                |
 | Settings            | `GET/PUT /settings/company`, `POST/DELETE /settings/company/logo`, `GET /settings/states`                                                       |
 | Dashboard & reports | `GET /dashboard/summary`, `GET /dashboard/movement?range=daily/weekly/monthly`, `GET /reports/stock-valuation`, `GET /reports/movement?from&to` |
-| Audit               | `GET /audit-logs`                                                                                                                               |
 | Health              | `GET /health`                                                                                                                                   |
 
 **Branch scoping:** products (stock figures), inventory, stock entries, transfers, invoices, dashboard and

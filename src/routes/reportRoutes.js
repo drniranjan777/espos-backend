@@ -1,15 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import { PERMISSIONS as P } from '../constants/permissions.js';
 import { requirePermission } from '../middleware/role.js';
 import { validate } from '../middleware/validate.js';
-import { AUDIT_SORT_FIELDS } from '../repositories/auditRepository.js';
-import * as auditService from '../services/auditService.js';
 import * as dashboardService from '../services/dashboardService.js';
 import { ApiError } from '../utils/ApiError.js';
-import { sendPaginated, sendSuccess } from '../utils/apiResponse.js';
-import { listQuerySchema } from '../utils/pagination.js';
+import { sendSuccess } from '../utils/apiResponse.js';
 import { isoDate } from '../validators/common.js';
 
 // ---- Dashboard ----
@@ -70,24 +66,4 @@ reportRouter.get(
       await dashboardService.movementReport(req.validated.query, req.context.warehouseId),
     );
   },
-);
-
-// ---- Audit logs ----
-export const auditRouter = Router();
-auditRouter.use(requirePermission(P.AUDIT_VIEW));
-
-auditRouter.get(
-  '/',
-  validate({
-    query: listQuerySchema(AUDIT_SORT_FIELDS, 'createdAt', {
-      sortOrder: z.enum(['asc', 'desc']).default('desc'),
-      module: z.enum(Object.values(AUDIT_MODULE)).optional(),
-      action: z.enum(Object.values(AUDIT_ACTION)).optional(),
-      userId: z.coerce.number().int().positive().optional(),
-      recordId: z.string().max(50).optional(),
-      from: isoDate.optional(),
-      to: isoDate.optional(),
-    }),
-  }),
-  async (req, res) => sendPaginated(res, await auditService.list(req.validated.query)),
 );

@@ -306,11 +306,11 @@ describe('users and roles', () => {
 
   it('creates custom roles and rejects unknown permissions', async () => {
     const res = await admin.post('/roles', {
-      name: 'Auditor',
-      permissions: ['audit.view', 'dashboard.view'],
+      name: 'Viewer',
+      permissions: ['dashboard.view', 'reports.view'],
     });
     expect(res.status).toBe(201);
-    expect(res.body.data.permissions).toEqual(['audit.view', 'dashboard.view']);
+    expect(res.body.data.permissions).toEqual(['dashboard.view', 'reports.view']);
     const bad = await admin.post('/roles', { name: 'Bad', permissions: ['everything.all'] });
     expect(bad.status).toBe(400);
     expect((await admin.delete(`/roles/${res.body.data.id}`)).status).toBe(200);
@@ -370,13 +370,15 @@ describe('dashboard and reports', () => {
 
 describe('audit trail', () => {
   it('records who changed what, with old and new values', async () => {
+    const me = (await admin.get('/auth/me')).body.data;
     await admin.patch('/products/2', { minStockLevel: 25 });
-    const res = await admin.get('/audit-logs?module=products&recordId=2&action=UPDATE');
-    expect(res.status).toBe(200);
-    const entry = res.body.data[0];
-    expect(entry).toMatchObject({ userName: 'Administrator', module: 'products', recordId: '2' });
-    expect(entry.oldValue.minStockLevel).toBe(15);
-    expect(entry.newValue.minStockLevel).toBe(25);
+    const entry = await db('audit_logs')
+      .where({ module: 'products', record_id: '2', action: 'UPDATE' })
+      .orderBy('id', 'desc')
+      .first();
+    expect(entry.user_id).toBe(me.id);
+    expect(entry.old_value.minStockLevel).toBe(15);
+    expect(entry.new_value.minStockLevel).toBe(25);
   });
 
   it('never stores password hashes', async () => {
@@ -384,7 +386,7 @@ describe('audit trail', () => {
     expect(JSON.stringify(rows)).not.toMatch(/password_?hash/i);
   });
 
-  it('is restricted to audit.view', async () => {
-    expect((await salesman.get('/audit-logs')).status).toBe(403);
+  it('has no endpoint for reading the log', async () => {
+    expect((await admin.get('/audit-logs')).status).toBe(404);
   });
 });
