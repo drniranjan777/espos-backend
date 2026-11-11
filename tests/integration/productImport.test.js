@@ -158,7 +158,7 @@ describe('POST /products/import', () => {
   });
 
   it('skips parts that already exist instead of changing them', async () => {
-    const existing = row(2, { name: 'Renamed', sku: 'JCB-HF-001', unit: 'PCS', openingStock: 99 });
+    const existing = row(2, { name: 'Hydraulic Filter', sku: 'JCB-HF-001', unit: 'PCS', openingStock: 99 });
     const fresh = row(3, { name: 'Fan Belt', sku: 'GEN-FB-001', unit: 'PCS' });
     const check = (await send(admin, [existing, idler, fresh], true)).body.data;
     expect(check.partsToCreate).toBe(1);

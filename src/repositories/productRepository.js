@@ -46,7 +46,6 @@ const DETAIL_COLUMNS = [
   'p.unit_id as unitId',
   'un.name as unitName',
   'p.gst_rate_id as gstRateId',
-  'p.purchase_price as purchasePrice',
   'p.description',
   'p.created_at as createdAt',
   'p.updated_at as updatedAt',
@@ -191,8 +190,12 @@ export async function purchasePrices(ids) {
   return new Map(rows.map((r) => [r.id, r.purchase_price]));
 }
 
-export async function findById(id, warehouseId, trx = db) {
-  return (await baseQuery(warehouseId, trx).where('p.id', id).first(DETAIL_COLUMNS)) ?? null;
+/** Purchase price is only selected when asked for, so it cannot leak into a response by accident. */
+export async function findById(id, warehouseId, trx = db, { withPurchasePrice = false } = {}) {
+  const columns = withPurchasePrice
+    ? [...DETAIL_COLUMNS, 'p.purchase_price as purchasePrice']
+    : DETAIL_COLUMNS;
+  return (await baseQuery(warehouseId, trx).where('p.id', id).first(columns)) ?? null;
 }
 
 function toRow(data) {

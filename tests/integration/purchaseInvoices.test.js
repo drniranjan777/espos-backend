@@ -225,7 +225,11 @@ describe('Stock IN with purchase prices', () => {
 
     const ok = await stockIn(warehouse, [{ productId: 1, quantity: 1 }]);
     expect(ok.status).toBe(201);
-    expect(ok.body.data.items[0].purchasePrice).toBe(before.purchasePrice);
+    // Invoiced at the current price, but the price is not shown to the warehouse user.
+    expect(ok.body.data.items[0]).not.toHaveProperty('purchasePrice');
+    expect((await admin.get(`/stock-movements/${ok.body.data.id}`)).body.data.items[0].purchasePrice).toBe(
+      before.purchasePrice,
+    );
     expect((await product(1)).purchasePrice).toBe(before.purchasePrice);
 
     // The Stock IN search shows the purchase price only to those who may change it.

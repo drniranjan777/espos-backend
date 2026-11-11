@@ -19,6 +19,7 @@ import {
 import { inventoryRouter, productRouter } from './productRoutes.js';
 import { movementRouter } from './movementRoutes.js';
 import { purchaseInvoiceRouter } from './purchaseInvoiceRoutes.js';
+import { resetRouter } from './resetRoutes.js';
 import { transferRouter } from './transferRoutes.js';
 import { dashboardRouter, reportRouter } from './reportRoutes.js';
 import { roleRouter, userRouter } from './userRoutes.js';
@@ -45,6 +46,7 @@ apiRouter.use('/adjustment-codes', adjustmentCodeRouter);
 apiRouter.use('/customers', customerRouter);
 apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/ask-stock', askStockSettingsRouter);
+apiRouter.use('/admin/reset', resetRouter);
 
 // ---- Branch-scoped (stock figures and documents belong to the selected branch) ----
 apiRouter.use('/products', resolveBranch, productRouter);

@@ -3,15 +3,25 @@ import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import { TXN_TYPE } from '../constants/transactionTypes.js';
 import * as productRepository from '../repositories/productRepository.js';
 import { ApiError } from '../utils/ApiError.js';
+import { canViewPurchasePrice, omit } from '../utils/access.js';
 import * as auditService from './auditService.js';
 import { applyMovement } from './inventoryService.js';
 
 const QUICK_SEARCH_LIMIT = 20;
 
-async function getOrThrow(id, warehouseId, trx) {
-  const product = await productRepository.findById(id, warehouseId, trx);
+async function getOrThrow(id, warehouseId, trx, withPurchasePrice = false) {
+  const product = await productRepository.findById(id, warehouseId, trx, { withPurchasePrice });
   if (!product) throw ApiError.notFound('Product');
   return product;
+}
+
+/** Purchase price is Admin-only: other users never get it, and cannot set it. */
+function writableFields(data, user) {
+  if (canViewPurchasePrice(user)) return data;
+  if (data.purchasePrice !== undefined && data.purchasePrice !== 0) {
+    throw ApiError.forbidden('Only Admin can set purchase prices');
+  }
+  return omit(data, 'purchasePrice');
 }
 
 /** Checks referenced masters exist and are active (inactive ones may be kept on update). */
@@ -59,9 +69,11 @@ export async function quickSearch(search, warehouseId, { withPurchasePrice = fal
   }));
 }
 
-export const getById = (id, warehouseId) => getOrThrow(id, warehouseId);
+export const getById = (id, warehouseId, user) =>
+  getOrThrow(id, warehouseId, undefined, canViewPurchasePrice(user));
 
-export async function create({ openingStock, ...data }, context) {
+export async function create({ openingStock, ...input }, context, user) {
+  const data = writableFields(input, user);
   return db.transaction(async (trx) => {
     await validateReferences(trx, data);
     const { warehouseId } = context;
@@ -85,7 +97,7 @@ export async function create({ openingStock, ...data }, context) {
       );
     }
 
-    const product = await getOrThrow(id, warehouseId, trx);
+    const product = await getOrThrow(id, warehouseId, trx, true);
     await auditService.log(
       context,
       {
@@ -96,14 +108,15 @@ export async function create({ openingStock, ...data }, context) {
       },
       trx,
     );
-    return product;
+    return canViewPurchasePrice(user) ? product : omit(product, 'purchasePrice');
   });
 }
 
-export async function update(id, data, context) {
+export async function update(id, input, context, user) {
+  const data = writableFields(input, user);
   return db.transaction(async (trx) => {
     const { warehouseId } = context;
-    const before = await getOrThrow(id, warehouseId, trx);
+    const before = await getOrThrow(id, warehouseId, trx, true);
     await validateReferences(trx, data, before);
 
     const mrp = data.mrp ?? before.mrp;
@@ -122,7 +135,7 @@ export async function update(id, data, context) {
     }
 
     await productRepository.update(id, data, context.userId, trx);
-    const after = await getOrThrow(id, warehouseId, trx);
+    const after = await getOrThrow(id, warehouseId, trx, true);
     await auditService.log(
       context,
       {
@@ -134,14 +147,14 @@ export async function update(id, data, context) {
       },
       trx,
     );
-    return after;
+    return canViewPurchasePrice(user) ? after : omit(after, 'purchasePrice');
   });
 }
 
 /** Deletes a product that has never been used. Products with history must be deactivated. */
 export async function remove(id, context) {
   return db.transaction(async (trx) => {
-    const before = await getOrThrow(id, context.warehouseId, trx);
+    const before = await getOrThrow(id, context.warehouseId, trx, true);
     if (await productRepository.hasHistory(id, trx)) {
       throw ApiError.conflict(
         'This product has stock or invoice history. Mark it inactive instead of deleting it.',

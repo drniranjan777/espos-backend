@@ -1,5 +1,6 @@
 import { db } from '../config/database.js';
 import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
+import { ADMIN_ONLY_PERMISSIONS } from '../constants/permissions.js';
 import * as roleRepository from '../repositories/roleRepository.js';
 import { ApiError } from '../utils/ApiError.js';
 import * as auditService from './auditService.js';
@@ -15,6 +16,10 @@ export async function getRole(id) {
 
 async function resolvePermissionIds(codes, trx) {
   const unique = [...new Set(codes)];
+  const adminOnly = unique.filter((c) => ADMIN_ONLY_PERMISSIONS.includes(c));
+  if (adminOnly.length) {
+    throw ApiError.badRequest(`Only the Admin role can have: ${adminOnly.join(', ')}`);
+  }
   const rows = await roleRepository.findPermissionIds(unique, trx);
   if (rows.length !== unique.length) {
     const known = new Set(rows.map((r) => r.code));

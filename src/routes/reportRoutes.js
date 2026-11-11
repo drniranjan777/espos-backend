@@ -41,7 +41,11 @@ reportRouter.get(
   async (req, res) =>
     sendSuccess(
       res,
-      await dashboardService.stockValuationReport(req.validated.query, req.context.warehouseId),
+      await dashboardService.stockValuationReport(
+        req.validated.query,
+        req.context.warehouseId,
+        req.user,
+      ),
     ),
 );
 

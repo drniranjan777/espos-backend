@@ -3,6 +3,7 @@ import { AUDIT_ACTION, AUDIT_MODULE } from '../constants/audit.js';
 import { TXN_TYPE } from '../constants/transactionTypes.js';
 import * as productRepository from '../repositories/productRepository.js';
 import { ApiError } from '../utils/ApiError.js';
+import { canViewPurchasePrice } from '../utils/access.js';
 import * as auditService from './auditService.js';
 import { applyMovement } from './inventoryService.js';
 
@@ -11,7 +12,10 @@ import { applyMovement } from './inventoryService.js';
  * file and sends its rows). One row per part; a part held in several branches repeats its
  * SKU with another branch and quantity. Every row is checked first and problems are
  * reported by Excel row number; nothing is saved unless the whole file is valid.
- * Parts whose SKU already exists are left untouched and listed as skipped.
+ * SKUs are not unique: rows with one SKU are the same part only when name, brand and machine
+ * model also match; otherwise they become separate parts sharing the SKU. A part that already
+ * exists (same SKU and name) is left untouched and listed as skipped. Purchase prices in the
+ * file are read only for Admin; for anyone else the column is ignored.
  */
 
 export const MAX_IMPORT_ROWS = 5000;
@@ -31,13 +35,18 @@ function number(value) {
 
 const key = (value) => text(value).toLowerCase();
 
+/** What makes a row the same part as another row: SKU plus the details that tell parts apart. */
+const partKey = (sku, row) =>
+  [sku, key(row.name), key(row.brand), key(row.machineModel)].join('|');
+const existingKey = (sku, name) => `${sku.toUpperCase()}|${key(name)}`;
+
 async function loadLookups(trx, skus, user) {
   const [units, gstRates, categories, brands, existing] = await Promise.all([
     trx('units').select('id', 'code', 'allow_decimal', 'is_active'),
     trx('gst_rates').where('is_active', true).select('id', 'rate'),
     trx('categories').select('id', 'name', 'is_active'),
     trx('brands').select('id', 'name', 'is_active'),
-    skus.length ? trx('products').whereIn('sku', skus).select('sku') : [],
+    skus.length ? trx('products').whereIn('sku', skus).select('sku', 'name') : [],
   ]);
   const branches = new Map();
   for (const b of user.branches) {
@@ -50,6 +59,7 @@ async function loadLookups(trx, skus, user) {
     categories: new Map(categories.map((c) => [key(c.name), c])),
     brands: new Map(brands.map((b) => [key(b.name), b])),
     existingSkus: new Set(existing.map((p) => p.sku.toUpperCase())),
+    existingParts: new Set(existing.map((p) => existingKey(p.sku, p.name))),
     branches,
   };
 }
@@ -152,6 +162,7 @@ function plan(rows, lookups, currentBranch) {
   const errors = [];
   const skipped = [];
   const parts = new Map();
+  const lastBySku = new Map();
 
   for (const row of rows) {
     const sku = text(row.sku).toUpperCase();
@@ -165,20 +176,32 @@ function plan(rows, lookups, currentBranch) {
       fail('sku', 'SKU may contain letters, numbers and - _ / . only (up to 60 characters)');
       continue;
     }
-    if (lookups.existingSkus.has(sku)) {
-      skipped.push({ row: row.rowNumber, sku, reason: 'A part with this SKU already exists' });
+    // A row without a name continues a part of this SKU; if that SKU is already in the app, it is skipped too.
+    const known = text(row.name)
+      ? lookups.existingParts.has(existingKey(sku, row.name))
+      : lookups.existingSkus.has(sku);
+    if (known) {
+      skipped.push({
+        row: row.rowNumber,
+        sku,
+        reason: 'This part is already in the app',
+      });
       continue;
     }
 
-    let part = parts.get(sku);
+    const id = partKey(sku, row);
+    let part = parts.get(id);
+    // A row with only a SKU, branch and quantity continues the part listed just before it.
+    if (!part && !text(row.name)) part = lastBySku.get(sku);
     if (!part) {
       part = { ...readProduct(row, sku, lookups, fail), stock: new Map() };
-      parts.set(sku, part);
+      parts.set(id, part);
     }
+    lastBySku.set(sku, part);
     const { branch, quantity } = readStock(row, part.unit, lookups, currentBranch, fail);
     if (!branch) continue;
     if (part.stock.has(branch.id)) {
-      fail('branch', `SKU ${sku} is listed twice for branch ${branch.name}`);
+      fail('branch', `${text(row.name)} (SKU ${sku}) is listed twice for branch ${branch.name}`);
     } else {
       part.stock.set(branch.id, quantity);
     }
@@ -245,7 +268,11 @@ async function save(trx, planned, lookups, newCategories, newBrands, context) {
  * @param {object} user         authenticated user (branches)
  * @param {{ id: number, name: string }} branch  current branch, used when Branch is blank
  */
-export async function importProducts(rows, { dryRun }, context, user, branch) {
+export async function importProducts(fileRows, { dryRun }, context, user, branch) {
+  // Purchase prices are Admin-only: for anyone else the column is not read at all.
+  const rows = canViewPurchasePrice(user)
+    ? fileRows
+    : fileRows.map((row) => ({ ...row, purchasePrice: null }));
   const skus = [...new Set(rows.map((r) => text(r.sku).toUpperCase()).filter(Boolean))];
 
   return db.transaction(async (trx) => {

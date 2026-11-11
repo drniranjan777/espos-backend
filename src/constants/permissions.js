@@ -40,6 +40,7 @@ export const PERMISSIONS = Object.freeze({
   USERS_MANAGE: 'users.manage',
   ROLES_MANAGE: 'roles.manage',
   SETTINGS_MANAGE: 'settings.manage',
+  DATA_RESET: 'data.reset',
 });
 
 /** Descriptions shown in the role-permission editor. */
@@ -66,16 +67,29 @@ export const PERMISSION_DEFINITIONS = [
   [PERMISSIONS.INVOICE_CREATE, 'invoices', 'Create and finalize invoices'],
   [PERMISSIONS.INVOICE_UPDATE, 'invoices', 'Edit draft invoices'],
   [PERMISSIONS.INVOICE_CANCEL, 'invoices', 'Cancel invoices'],
-  [PERMISSIONS.PURCHASE_PRICE, 'purchases', 'Change purchase prices on Stock IN'],
-  [PERMISSIONS.PURCHASE_VIEW, 'purchases', 'View billing (purchase) invoices'],
-  [PERMISSIONS.PURCHASE_PAY, 'purchases', 'Record payments on billing invoices'],
+  [PERMISSIONS.PURCHASE_PRICE, 'purchases', 'See and change purchase prices (Admin only)'],
+  [PERMISSIONS.PURCHASE_VIEW, 'purchases', 'View billing (purchase) invoices (Admin only)'],
+  [PERMISSIONS.PURCHASE_PAY, 'purchases', 'Record payments on billing invoices (Admin only)'],
   [PERMISSIONS.REPORTS_VIEW, 'reports', 'View reports'],
   [PERMISSIONS.USERS_MANAGE, 'administration', 'Manage users'],
   [PERMISSIONS.ROLES_MANAGE, 'administration', 'Manage roles and permissions'],
   [PERMISSIONS.SETTINGS_MANAGE, 'administration', 'Manage company and invoice settings'],
+  [PERMISSIONS.DATA_RESET, 'administration', 'Reset business data (Admin only)'],
 ];
 
 const P = PERMISSIONS;
+
+/**
+ * Permissions only the Admin system role may hold. Purchase prices (and the billing invoices built
+ * from them) are the business's cost data; the reset wipes data. Other roles never receive these:
+ * the role editor refuses them and a user's permission list is filtered (userRepository).
+ */
+export const ADMIN_ONLY_PERMISSIONS = [
+  P.PURCHASE_PRICE,
+  P.PURCHASE_VIEW,
+  P.PURCHASE_PAY,
+  P.DATA_RESET,
+];
 
 /** Default role → permission mapping used by the seeder. Admin always receives everything. */
 export const DEFAULT_ROLES = [

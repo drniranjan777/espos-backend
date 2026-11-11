@@ -1,4 +1,4 @@
-import { PERMISSIONS as P } from '../constants/permissions.js';
+import { canViewPurchasePrice } from '../utils/access.js';
 import { importProducts } from '../services/productImportService.js';
 import * as productService from '../services/productService.js';
 import { sendCreated, sendPaginated, sendSuccess } from '../utils/apiResponse.js';
@@ -14,7 +14,7 @@ export async function search(req, res) {
   return sendSuccess(
     res,
     await productService.quickSearch(req.validated.query.q, req.context.warehouseId, {
-      withPurchasePrice: req.user.permissions.includes(P.PURCHASE_PRICE),
+      withPurchasePrice: canViewPurchasePrice(req.user),
     }),
   );
 }
@@ -22,14 +22,14 @@ export async function search(req, res) {
 export async function get(req, res) {
   return sendSuccess(
     res,
-    await productService.getById(req.validated.params.id, req.context.warehouseId),
+    await productService.getById(req.validated.params.id, req.context.warehouseId, req.user),
   );
 }
 
 export async function create(req, res) {
   return sendCreated(
     res,
-    await productService.create(req.validated.body, req.context),
+    await productService.create(req.validated.body, req.context, req.user),
     'Product created',
   );
 }
@@ -39,6 +39,7 @@ export async function update(req, res) {
     req.validated.params.id,
     req.validated.body,
     req.context,
+    req.user,
   );
   return sendSuccess(res, product, { message: 'Product updated' });
 }

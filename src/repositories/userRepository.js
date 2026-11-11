@@ -1,4 +1,5 @@
 import { db } from '../config/database.js';
+import { ADMIN_ONLY_PERMISSIONS, ADMIN_ROLE_NAME } from '../constants/permissions.js';
 import { paginate } from '../utils/pagination.js';
 import { listAccessibleBranches } from './warehouseRepository.js';
 
@@ -36,6 +37,10 @@ export async function findAuthUserById(id) {
       ), '{}') as permissions`),
     );
   if (!user) return null;
+  // Whatever a role row says, only the Admin role holds the admin-only permissions.
+  if (user.roleName !== ADMIN_ROLE_NAME) {
+    user.permissions = user.permissions.filter((code) => !ADMIN_ONLY_PERMISSIONS.includes(code));
+  }
   user.branches = await listAccessibleBranches(user.id, user.permissions);
   return user;
 }

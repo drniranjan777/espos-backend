@@ -77,3 +77,66 @@ export async function assertStockAvailable(trx, warehouseId, lines) {
     });
   }
 }
+
+/**
+ * A Stock OUT dated in the past must not leave the balance negative on any day from that date
+ * until today (the ledger is by business date). Stock on hand is checked separately and first;
+ * this catches e.g. issuing 10 on the 1st when the stock only arrived on the 5th.
+ */
+export async function assertStockOnDate(trx, warehouseId, lines, date) {
+  const products = new Map(
+    (
+      await trx('products as p')
+        .join('units as un', 'un.id', 'p.unit_id')
+        .whereIn(
+          'p.id',
+          lines.map((l) => l.productId),
+        )
+        .select('p.id', 'p.name', 'p.sku', 'un.code as unitCode')
+    ).map((p) => [p.id, p]),
+  );
+
+  const shortages = [];
+  for (const line of lockOrder(lines)) {
+    const { rows } = await trx.raw(
+      `
+      SELECT min(balance) AS lowest FROM (
+        SELECT COALESCE((
+          SELECT sum(t.quantity) FROM inventory_transactions t
+          WHERE t.product_id = :productId AND t.warehouse_id = :warehouseId AND t.txn_date <= d.day
+        ), 0) AS balance
+        FROM (
+          SELECT CAST(:date AS date) AS day
+          UNION
+          SELECT DISTINCT txn_date FROM inventory_transactions
+          WHERE product_id = :productId AND warehouse_id = :warehouseId AND txn_date > CAST(:date AS date)
+        ) d
+      ) b
+      `,
+      { productId: line.productId, warehouseId, date },
+    );
+    const lowest = new Decimal(rows[0].lowest ?? 0);
+    if (lowest.lessThan(line.quantity)) {
+      const product = products.get(line.productId);
+      shortages.push({
+        productId: line.productId,
+        name: product.name,
+        sku: product.sku,
+        unitCode: product.unitCode,
+        available: Number(lowest),
+        requested: Number(line.quantity),
+      });
+    }
+  }
+
+  if (shortages.length) {
+    const summary = shortages
+      .map((s) => `${s.name}: only ${s.available} ${s.unitCode} on hand around ${date}, ${s.requested} requested`)
+      .join('; ');
+    throw ApiError.conflict(
+      `Not enough stock on the selected date. ${summary}. Record the Stock IN first, or pick a later date.`,
+      'INSUFFICIENT_STOCK',
+      { lines: shortages },
+    );
+  }
+}

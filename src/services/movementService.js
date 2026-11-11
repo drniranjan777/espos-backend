@@ -11,6 +11,7 @@ import { applyMovement } from './inventoryService.js';
 import { postForStockIn, pricePurchaseLines } from './purchaseInvoiceService.js';
 import {
   assertStockAvailable,
+  assertStockOnDate,
   lockOrder,
   mergeLines,
   totalQuantity,
@@ -95,7 +96,11 @@ async function createMovement(data, context) {
     }
 
     if (isIn) lines = await pricePurchaseLines(trx, lines);
-    else await assertStockAvailable(trx, warehouseId, lines);
+    else {
+      await assertStockAvailable(trx, warehouseId, lines);
+      // Backdated: the balance must also hold on every day since the chosen date.
+      if (date < todayIso()) await assertStockOnDate(trx, warehouseId, lines, date);
+    }
 
     const prefix = MOVEMENT_PREFIX[data.type];
     const fy = financialYear(date);

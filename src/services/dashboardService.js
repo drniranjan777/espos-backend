@@ -1,5 +1,6 @@
 import { PERMISSIONS } from '../constants/permissions.js';
 import * as dashboardRepository from '../repositories/dashboardRepository.js';
+import { canViewPurchasePrice } from '../utils/access.js';
 import { todayIso } from '../utils/date.js';
 
 const TOP_PRODUCTS_DAYS = 30;
@@ -13,12 +14,12 @@ function daysAgoIso(today, days) {
 
 /**
  * Dashboard KPIs for the current user. Sales figures are only included for users
- * who can view invoices; stock value only for users who can see reports.
+ * who can view invoices; stock value (priced at purchase price) only for Admin.
  */
 export async function getSummary(user, warehouseId) {
   const today = todayIso();
   const canSeeSales = user.permissions.includes(PERMISSIONS.INVOICE_VIEW);
-  const canSeeValue = user.permissions.includes(PERMISSIONS.REPORTS_VIEW);
+  const canSeeValue = canViewPurchasePrice(user);
 
   const [stock, movement, sales, lowStock, topProducts, transfers] = await Promise.all([
     dashboardRepository.stockSummary(warehouseId),
@@ -54,8 +55,13 @@ export async function getMovement(range, warehouseId) {
   return dashboardRepository.movementSeries(warehouseId, range, todayIso());
 }
 
-export async function stockValuationReport(filters, warehouseId) {
-  const rows = await dashboardRepository.stockValuation(warehouseId, filters);
+/** Purchase price and purchase value columns are Admin-only; selling value stays for report users. */
+export async function stockValuationReport(filters, warehouseId, user) {
+  const showCost = canViewPurchasePrice(user);
+  const all = await dashboardRepository.stockValuation(warehouseId, filters);
+  const rows = showCost
+    ? all
+    : all.map(({ purchasePrice: _price, purchaseValue: _value, ...rest }) => rest);
   const totals = rows.reduce(
     (acc, r) => ({
       purchaseValue: acc.purchaseValue + Number(r.purchaseValue),
@@ -66,7 +72,7 @@ export async function stockValuationReport(filters, warehouseId) {
   return {
     rows,
     totals: {
-      purchaseValue: Math.round(totals.purchaseValue * 100) / 100,
+      ...(showCost ? { purchaseValue: Math.round(totals.purchaseValue * 100) / 100 } : {}),
       sellingValue: Math.round(totals.sellingValue * 100) / 100,
     },
   };

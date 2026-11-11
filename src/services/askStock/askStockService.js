@@ -47,13 +47,13 @@ function stockStatus(part) {
   return 'ok';
 }
 
-/** Purchase price is shown only to users who may see costs (reports). */
+/** Purchase price and stock value are shown only to Admin. */
 function publicPart(part, user) {
   const { purchasePrice, unitAllowDecimal: _unitAllowDecimal, ...rest } = part;
   return {
     ...rest,
     status: stockStatus(part),
-    ...(can(user, P.REPORTS_VIEW) ? { purchasePrice } : {}),
+    ...(can(user, P.PURCHASE_PRICE) ? { purchasePrice } : {}),
   };
 }
 
@@ -83,7 +83,10 @@ function buildRequest(message, context, user, branch, language) {
 async function findParts({ parsed, context, warehouseId }) {
   if (parsed.query) return quickSearch(parsed.query, warehouseId);
   if (context?.productId) {
-    const part = await productRepository.findById(context.productId, warehouseId);
+    // Internal lookup: publicPart() decides per user whether the purchase price is shown.
+    const part = await productRepository.findById(context.productId, warehouseId, undefined, {
+      withPurchasePrice: true,
+    });
     return part ? [{ ...part, matchType: 'exact' }] : [];
   }
   return [];
@@ -147,7 +150,9 @@ async function answerAboutPart(req) {
   }
 
   // Full details (incl. purchase price, which search results leave out).
-  const part = await productRepository.findById(parts[0].id, warehouseId);
+  const part = await productRepository.findById(parts[0].id, warehouseId, undefined, {
+    withPurchasePrice: can(user, P.PURCHASE_PRICE),
+  });
   const card = await partCard(part, user, warehouseId);
   const context = { productId: part.id, productName: part.name };
   const unit = part.unitCode;
@@ -157,7 +162,7 @@ async function answerAboutPart(req) {
   const extra = { cards: [card], context, suggestions: req.aboutPart(name) };
 
   if (parsed.intent === INTENT.PRICE) {
-    const cost = can(user, P.REPORTS_VIEW)
+    const cost = can(user, P.PURCHASE_PRICE)
       ? t('purchasePrice', { price: fmt(part.purchasePrice) })
       : '';
     const text = t('price', {
@@ -279,7 +284,7 @@ async function answerNonMoving(req) {
       suggestions: [t('sReorder'), t('sTop')],
     });
   }
-  const showValue = can(user, P.REPORTS_VIEW);
+  const showValue = can(user, P.PURCHASE_PRICE);
   return reply(
     t('nonMovingSome', { count: rows.length, branch: branchName, days, byValue: showValue }),
     {
@@ -508,7 +513,7 @@ async function answerCompare(req) {
   const { t, user, warehouseId } = req;
   if (!can(user, P.INVENTORY_VIEW)) return req.denied();
   const rows = await askStockRepository.branchTotals(user.branches.map((b) => b.id));
-  const showValue = can(user, P.REPORTS_VIEW);
+  const showValue = can(user, P.PURCHASE_PRICE);
   return reply(t('compare', { count: rows.length }), {
     cards: [
       {
@@ -542,7 +547,7 @@ async function answerCategory(req) {
   const { t, user, warehouseId, branchName } = req;
   if (!can(user, P.INVENTORY_VIEW)) return req.denied();
   const rows = await askStockRepository.stockByCategory(warehouseId);
-  const showValue = can(user, P.REPORTS_VIEW);
+  const showValue = can(user, P.PURCHASE_PRICE);
   return reply(t('categoryIntro', { branch: branchName }), {
     cards: [
       {

@@ -145,9 +145,12 @@ describe('products', () => {
     expect(res.status).toBe(422);
   });
 
-  it('enforces unique SKU and selling price <= MRP', async () => {
+  it('allows duplicate SKUs and enforces selling price <= MRP', async () => {
     const dup = await admin.post('/products', { name: 'X', sku: 'jcb-hf-001', unitId: 1 });
-    expect(dup.status).toBe(409);
+    expect(dup.status).toBe(201);
+    expect(dup.body.data.id).not.toBe(1);
+    expect(dup.body.data.sku).toBe('JCB-HF-001');
+    expect((await admin.delete(`/products/${dup.body.data.id}`)).status).toBe(200);
     const price = await admin.post('/products', {
       name: 'X',
       sku: 'NEW-1',
